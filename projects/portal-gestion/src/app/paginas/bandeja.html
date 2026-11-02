@@ -218,6 +218,9 @@
               class="bq-entrada"
               type="number"
               formControlName="tea"
+              bqRango
+              [bqMax]="teaMaxima()"
+              [bqDecimales]="2"
               min="0.01"
               [max]="teaMaxima()"
               step="0.01"

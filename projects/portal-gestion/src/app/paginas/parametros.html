@@ -181,8 +181,12 @@
                         class="bq-entrada entrada-corta"
                         type="number"
                         min="0"
+                        [max]="maximoDiaMora"
                         step="1"
                         formControlName="diaMoraMinimo"
+                        bqRango
+                        [bqMax]="maximoDiaMora"
+                        [bqDecimales]="0"
                         [attr.aria-label]="'Día de mora desde el que empieza el tramo ' + fila.value.numeroTramo"
                       />
                     </td>
@@ -200,6 +204,9 @@
                         max="100"
                         step="0.01"
                         formControlName="porcentajeProvision"
+                        bqRango
+                        [bqMax]="100"
+                        [bqDecimales]="2"
                         [attr.aria-label]="'Porcentaje de provisión del tramo ' + fila.value.numeroTramo"
                       />
                     </td>
@@ -279,6 +286,9 @@
                 class="bq-entrada"
                 type="number"
                 formControlName="valor"
+                bqRango
+                [bqMax]="limites(parametro.codigo).maximo"
+                [bqDecimales]="decimales(parametro.codigo)"
                 [min]="limites(parametro.codigo).minimo"
                 [attr.max]="limites(parametro.codigo).maximo"
                 [step]="paso(parametro.codigo)"

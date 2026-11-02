@@ -62,11 +62,30 @@
         <form [formGroup]="abono" (ngSubmit)="simularAbono()" novalidate class="formulario">
           <div class="bq-campo">
             <label class="bq-campo__etiqueta" for="monto">Monto del abono</label>
-            <input id="monto" class="bq-entrada" type="number" formControlName="monto" [min]="abonoMinimo()" step="10" />
+            <input
+              id="monto"
+              class="bq-entrada"
+              type="number"
+              formControlName="monto"
+              bqRango
+              [bqMax]="abonoMaximo()"
+              [bqDecimales]="2"
+              [min]="abonoMinimo()"
+              [attr.max]="abonoMaximo()"
+              step="10"
+              aria-describedby="ayuda-abono"
+            />
+            <p class="bq-campo__ayuda" id="ayuda-abono">
+              Desde {{ abonoMinimo() | dinero }}@if (abonoMaximo() !== null) { hasta el saldo de capital, {{ abonoMaximo()! | dinero }}}
+            </p>
             @if (abono.controls.monto.touched && abono.controls.monto.invalid) {
               <p class="bq-campo__error" role="alert">
                 <bq-icono nombre="alerta" [tamano]="15" />
-                El abono mínimo es de {{ abonoMinimo() | dinero }}
+                @if (abonoMaximo() !== null) {
+                  El abono va de {{ abonoMinimo() | dinero }} a {{ abonoMaximo()! | dinero }}
+                } @else {
+                  El abono mínimo es de {{ abonoMinimo() | dinero }}
+                }
               </p>
             }
           </div>

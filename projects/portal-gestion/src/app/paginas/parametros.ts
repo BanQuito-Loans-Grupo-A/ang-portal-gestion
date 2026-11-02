@@ -2,7 +2,7 @@ import { LowerCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import {
-  ApiBanquito, Cargando, DatosTramo, Enfocar, EtiquetaPipe, FechaNegocioService, FechaPipe, Icono, Parametro,
+  ApiBanquito, Cargando, DatosTramo, Enfocar, EtiquetaPipe, FechaNegocioService, FechaPipe, Icono, Parametro, Rango,
   TramoCartera, mensajeDe, sumarDias,
 } from 'shared';
 
@@ -37,6 +37,7 @@ const REGLAS: Record<string, Regla> = {
 const DECIMALES: Record<TipoValor, number> = { MONTO: 2, ENTERO: 0, PORCENTAJE: 4, FACTOR: 4, DIAS: 0 };
 const PASO: Record<TipoValor, number> = { MONTO: 0.01, ENTERO: 1, PORCENTAJE: 0.0001, FACTOR: 0.0001, DIAS: 1 };
 const HORIZONTE = '2099-12-31';
+const MAXIMO_DIA_MORA = 9999;
 
 const MONEDA = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 const NUMERO = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 4 });
@@ -58,7 +59,7 @@ function decimalesMaximos(decimales: number): ValidatorFn {
 @Component({
   selector: 'pg-parametros',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, LowerCasePipe, Icono, Cargando, FechaPipe, EtiquetaPipe, Enfocar],
+  imports: [ReactiveFormsModule, LowerCasePipe, Icono, Cargando, FechaPipe, EtiquetaPipe, Enfocar, Rango],
   templateUrl: './parametros.html',
   styleUrl: './parametros.css',
 })
@@ -79,6 +80,7 @@ export class Parametros {
   protected readonly editando = signal<Parametro | null>(null);
   protected readonly editandoTramos = signal(false);
   protected readonly guardado = signal(0);
+  protected readonly maximoDiaMora = MAXIMO_DIA_MORA;
 
   protected readonly hoy = computed(() => this.fechaNegocio.estado()?.fechaNegocio ?? '');
   protected readonly manana = computed(() => (this.hoy() ? sumarDias(this.hoy(), 1) : ''));
@@ -168,6 +170,10 @@ export class Parametros {
 
   protected opciones(codigo: string): number[] | undefined {
     return REGLAS[codigo]?.opciones;
+  }
+
+  protected decimales(codigo: string): number {
+    return DECIMALES[this.tipo(codigo)];
   }
 
   protected paso(codigo: string): number {
@@ -274,7 +280,7 @@ export class Parametros {
       numeroTramo: [tramo.numeroTramo],
       diaMoraMinimo: [
         { value: tramo.diaMoraMinimo, disabled: tramo.numeroTramo === 1 },
-        [Validators.required, Validators.min(0), Validators.pattern(/^\d+$/)],
+        [Validators.required, Validators.min(0), Validators.max(MAXIMO_DIA_MORA), Validators.pattern(/^\d+$/)],
       ],
       estadoCartera: [tramo.estadoCartera],
       devengaEnResultado: [tramo.devengaEnResultado],

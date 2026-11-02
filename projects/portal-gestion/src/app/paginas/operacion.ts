@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   ApiBanquito, Cargando, CargoMoraCuota, ChipEstado, CuadroAbono, CuotaTabla, DesglosePrelacion, DineroPipe,
-  Enfocar, EtiquetaPipe, FechaPipe, Icono, Liquidacion, ModalidadAbono, MovimientoEstado, OperacionDetalle,
+  Enfocar, EtiquetaPipe, FechaPipe, Icono, Liquidacion, Rango, ModalidadAbono, MovimientoEstado, OperacionDetalle,
   PagoAplicado, TasaPipe, mensajeDe,
 } from 'shared';
 import { SesionService } from 'shared';
@@ -11,7 +11,7 @@ import { SesionService } from 'shared';
 @Component({
   selector: 'pg-operacion',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, Icono, Cargando, ChipEstado, DineroPipe, FechaPipe, TasaPipe, EtiquetaPipe, Enfocar],
+  imports: [ReactiveFormsModule, RouterLink, Icono, Cargando, ChipEstado, DineroPipe, FechaPipe, TasaPipe, EtiquetaPipe, Enfocar, Rango],
   templateUrl: './operacion.html',
   styleUrl: './operacion.css',
 })
@@ -40,6 +40,7 @@ export class Operacion {
   protected readonly pendientes = computed(() => this.cuotas().filter((cuota) => cuota.estado !== 'PAGADA'));
   protected readonly cuotaPendiente = computed(() => this.pendientes()[0] ?? null);
   protected readonly cuotasPendientes = computed(() => this.pendientes().length);
+  protected readonly abonoMaximo = computed(() => this.operacion()?.saldoCapital ?? null);
   protected readonly ultimaCuota = computed(() => this.cuotas()[this.cuotas().length - 1] ?? null);
 
   protected readonly abono = this.fb.nonNullable.group({
@@ -57,8 +58,7 @@ export class Operacion {
       const minimo = parametros.find((parametro) => parametro.codigo === 'PAR-12')?.valorNumerico;
       if (minimo) {
         this.abonoMinimo.set(minimo);
-        this.abono.controls.monto.setValidators([Validators.required, Validators.min(minimo)]);
-        this.abono.controls.monto.updateValueAndValidity();
+        this.limitarAbono();
       }
     });
   }
@@ -67,6 +67,7 @@ export class Operacion {
     this.api.detalleOperacion(this.numero).subscribe({
       next: (valor) => {
         this.operacion.set(valor);
+        this.limitarAbono();
         this.cargando.set(false);
       },
       error: (fallo) => {
@@ -81,6 +82,16 @@ export class Operacion {
       next: (valor) => this.cargosMora.set(valor.filter((cargo) => cargo.moraAcumulada > 0)),
       error: () => this.cargosMora.set([]),
     });
+  }
+
+  private limitarAbono(): void {
+    const validadores = [Validators.required, Validators.min(this.abonoMinimo())];
+    const maximo = this.abonoMaximo();
+    if (maximo !== null) {
+      validadores.push(Validators.max(maximo));
+    }
+    this.abono.controls.monto.setValidators(validadores);
+    this.abono.controls.monto.updateValueAndValidity();
   }
 
   private idAnalista(): number {
