@@ -14,3 +14,103 @@
 .marca--no {
   color: var(--bq-texto-tenue);
 }
+
+.encabezado-seccion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bq-esp-2) var(--bq-esp-4);
+  margin-bottom: var(--bq-esp-3);
+}
+
+.encabezado-seccion h2,
+.encabezado-seccion p {
+  margin: 0;
+}
+
+.programado {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bq-esp-1);
+  padding: 2px var(--bq-esp-2);
+  border-radius: 999px;
+  background: var(--bq-tinte);
+  color: var(--bq-texto);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bloqueado {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bq-esp-1);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.edicion-tramos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bq-esp-4);
+}
+
+.entrada-corta {
+  width: 8rem;
+  min-height: 40px;
+}
+
+.casilla {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--bq-marca);
+  cursor: pointer;
+}
+
+.pie-tramos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--bq-esp-4);
+}
+
+.pie-tramos .bq-campo {
+  flex: 0 1 220px;
+}
+
+.reglas {
+  flex: 1 1 280px;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bq-esp-3);
+}
+
+.formulario-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bq-esp-4);
+}
+
+.entrada-con-unidad {
+  position: relative;
+}
+
+.entrada-con-unidad .bq-entrada {
+  padding-right: 4.5rem;
+}
+
+.unidad {
+  position: absolute;
+  inset: 0 var(--bq-esp-4) 0 auto;
+  display: flex;
+  align-items: center;
+  color: var(--bq-texto-suave);
+  font-weight: 600;
+  pointer-events: none;
+}

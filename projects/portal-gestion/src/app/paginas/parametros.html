@@ -3,25 +3,46 @@
     <hr class="bq-regla" />
     <h1>Parámetros y tramos de cartera</h1>
     <p class="bq-suave">
-      Los valores se cambian por configuración, sin recompilar, y rigen desde el siguiente cierre de
-      día. Cada parámetro tiene su fecha de vigencia.
+      Los valores se cambian por configuración, sin recompilar. Cada cambio queda con su fecha de
+      vigencia y rige desde el siguiente cierre de día; hasta entonces el sistema sigue usando el
+      valor vigente.
     </p>
   </header>
+
+  @if (mensaje()) {
+    <div class="bq-aviso bq-aviso--exito" role="status" [bqEnfocar]="guardado()">
+      <bq-icono nombre="verificado" />
+      <p>{{ mensaje() }}</p>
+    </div>
+  }
+  @if (error()) {
+    <div class="bq-aviso bq-aviso--error" role="alert">
+      <bq-icono nombre="alerta" />
+      <p>{{ error() }}</p>
+    </div>
+  }
 
   @if (cargando()) {
     <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Cargando parámetros" [filas]="6" /></div>
   } @else {
-    <section>
-      <h2>Parámetros del sistema</h2>
+    <section aria-labelledby="titulo-parametros">
+      <div class="encabezado-seccion">
+        <h2 id="titulo-parametros">Parámetros del sistema</h2>
+        @if (hoy()) {
+          <p class="bq-tenue">Fecha de negocio {{ hoy() | fecha }} · los cambios rigen desde el {{ manana() | fecha }}</p>
+        }
+      </div>
       <div class="bq-tabla-envoltura">
         <table class="bq-tabla">
-          <caption>Parámetros vigentes del core de préstamos</caption>
+          <caption>Parámetros vigentes del core de préstamos y cambios programados</caption>
           <thead>
             <tr>
               <th scope="col">Código</th>
               <th scope="col">Parámetro</th>
-              <th scope="col" class="bq-num">Valor</th>
+              <th scope="col" class="bq-num">Valor vigente</th>
               <th scope="col">Vigente desde</th>
+              <th scope="col">Cambio programado</th>
+              <th scope="col"><span class="bq-solo-lectores">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
@@ -31,12 +52,39 @@
                 <td class="nombre">{{ parametro.nombre }}</td>
                 <td class="bq-num">
                   @if (parametro.valorNumerico !== null) {
-                    {{ parametro.valorNumerico }}
+                    {{ formato(parametro.codigo, parametro.valorNumerico) }}
                   } @else {
                     {{ parametro.valorFecha | fecha }}
                   }
                 </td>
                 <td>{{ parametro.vigenteDesde | fecha }}</td>
+                <td>
+                  @for (cambio of programadosPorCodigo().get(parametro.codigo) ?? []; track cambio.vigenteDesde) {
+                    <span class="programado">
+                      <bq-icono nombre="reloj" [tamano]="13" />
+                      {{ formato(cambio.codigo, cambio.valorNumerico) }} desde el {{ cambio.vigenteDesde | fecha }}
+                    </span>
+                  } @empty {
+                    <span class="bq-tenue">—</span>
+                  }
+                </td>
+                <td>
+                  @if (editable(parametro)) {
+                    <button
+                      type="button"
+                      class="bq-boton bq-boton--secundario bq-boton--pequeno"
+                      (click)="editar(parametro)"
+                      [attr.aria-label]="'Editar ' + parametro.codigo + ' ' + parametro.nombre"
+                    >
+                      Editar
+                    </button>
+                  } @else {
+                    <span class="bq-tenue bloqueado">
+                      <bq-icono nombre="candado" [tamano]="13" />
+                      Solo lo avanza el cierre
+                    </span>
+                  }
+                </td>
               </tr>
             }
           </tbody>
@@ -44,47 +92,246 @@
       </div>
     </section>
 
-    <section>
-      <h2>Tabla de parámetros de cartera</h2>
-      <div class="bq-tabla-envoltura">
-        <table class="bq-tabla">
-          <caption>
-            Tramos por días de mora, con su estado, devengo en resultados y porcentaje de provisión
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Tramo</th>
-              <th scope="col" class="bq-num">Desde día</th>
-              <th scope="col">Estado de cartera</th>
-              <th scope="col">Devenga en resultados</th>
-              <th scope="col">Acumula mora</th>
-              <th scope="col" class="bq-num">Provisión</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (tramo of tramos(); track tramo.numeroTramo) {
-              <tr>
-                <th scope="row">{{ tramo.numeroTramo }}</th>
-                <td class="bq-num">{{ tramo.diaMoraMinimo }}</td>
-                <td>{{ tramo.estadoCartera }}</td>
-                <td>
-                  <span class="marca" [class.marca--no]="!tramo.devengaEnResultado">
-                    <bq-icono [nombre]="tramo.devengaEnResultado ? 'verificado' : 'cerrar'" [tamano]="15" />
-                    {{ tramo.devengaEnResultado ? 'Sí' : 'No' }}
-                  </span>
-                </td>
-                <td>
-                  <span class="marca" [class.marca--no]="!tramo.acumulaMora">
-                    <bq-icono [nombre]="tramo.acumulaMora ? 'verificado' : 'cerrar'" [tamano]="15" />
-                    {{ tramo.acumulaMora ? 'Sí' : 'No' }}
-                  </span>
-                </td>
-                <td class="bq-num">{{ tramo.porcentajeProvision }} %</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+    <section aria-labelledby="titulo-tramos">
+      <div class="encabezado-seccion">
+        <h2 id="titulo-tramos">Tabla de parámetros de cartera (PAR-13)</h2>
+        @if (!editandoTramos()) {
+          <button type="button" class="bq-boton bq-boton--secundario bq-boton--pequeno" (click)="editarTramos()">
+            Editar tabla de tramos
+          </button>
+        }
       </div>
+
+      @if (!editandoTramos()) {
+        <div class="bq-tabla-envoltura">
+          <table class="bq-tabla">
+            <caption>
+              Tramos vigentes por días de mora, con su estado, devengo en resultados y porcentaje de
+              provisión
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Tramo</th>
+                <th scope="col" class="bq-num">Desde día</th>
+                <th scope="col">Estado de cartera</th>
+                <th scope="col">Devenga en resultados</th>
+                <th scope="col">Acumula mora</th>
+                <th scope="col" class="bq-num">Provisión</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tramo of tramos(); track tramo.numeroTramo) {
+                <tr>
+                  <th scope="row">{{ tramo.numeroTramo }}</th>
+                  <td class="bq-num">{{ tramo.diaMoraMinimo }}</td>
+                  <td>{{ tramo.estadoCartera | etiqueta }}</td>
+                  <td>
+                    <span class="marca" [class.marca--no]="!tramo.devengaEnResultado">
+                      <bq-icono [nombre]="tramo.devengaEnResultado ? 'verificado' : 'cerrar'" [tamano]="15" />
+                      {{ tramo.devengaEnResultado ? 'Sí' : 'No' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="marca" [class.marca--no]="!tramo.acumulaMora">
+                      <bq-icono [nombre]="tramo.acumulaMora ? 'verificado' : 'cerrar'" [tamano]="15" />
+                      {{ tramo.acumulaMora ? 'Sí' : 'No' }}
+                    </span>
+                  </td>
+                  <td class="bq-num">{{ tramo.porcentajeProvision }} %</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (tramosProgramados().length) {
+          <div class="bq-aviso" role="note">
+            <bq-icono nombre="reloj" />
+            <p>
+              Hay una tabla programada desde el {{ tramosProgramados()[0].vigenteDesde | fecha }}:
+              @for (tramo of tramosProgramados(); track tramo.numeroTramo; let ultimo = $last) {
+                tramo {{ tramo.numeroTramo }} desde el día {{ tramo.diaMoraMinimo }} con
+                {{ tramo.porcentajeProvision }} %{{ ultimo ? '.' : ';' }}
+              }
+            </p>
+          </div>
+        }
+      } @else {
+        <form class="bq-tarjeta bq-tarjeta--contorno edicion-tramos bq-animar" [formGroup]="formularioTramos" (ngSubmit)="guardarTramos()" novalidate [bqEnfocar]="editandoTramos()">
+          <div class="bq-tabla-envoltura">
+            <table class="bq-tabla">
+              <caption>Edite los días de inicio, el devengo, la mora y la provisión de cada tramo</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Tramo</th>
+                  <th scope="col">Estado de cartera</th>
+                  <th scope="col">Desde día de mora</th>
+                  <th scope="col">Devenga en resultados</th>
+                  <th scope="col">Acumula mora</th>
+                  <th scope="col">Provisión %</th>
+                </tr>
+              </thead>
+              <tbody formArrayName="filas">
+                @for (fila of filas.controls; track $index; let i = $index) {
+                  <tr [formGroupName]="i">
+                    <th scope="row">{{ fila.value.numeroTramo }}</th>
+                    <td>{{ fila.getRawValue().estadoCartera | etiqueta }}</td>
+                    <td>
+                      <input
+                        class="bq-entrada entrada-corta"
+                        type="number"
+                        min="0"
+                        step="1"
+                        formControlName="diaMoraMinimo"
+                        [attr.aria-label]="'Día de mora desde el que empieza el tramo ' + fila.value.numeroTramo"
+                      />
+                    </td>
+                    <td>
+                      <input type="checkbox" class="casilla" formControlName="devengaEnResultado" [attr.aria-label]="'Tramo ' + fila.value.numeroTramo + ' devenga en resultados'" />
+                    </td>
+                    <td>
+                      <input type="checkbox" class="casilla" formControlName="acumulaMora" [attr.aria-label]="'Tramo ' + fila.value.numeroTramo + ' acumula mora'" />
+                    </td>
+                    <td>
+                      <input
+                        class="bq-entrada entrada-corta"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        formControlName="porcentajeProvision"
+                        [attr.aria-label]="'Porcentaje de provisión del tramo ' + fila.value.numeroTramo"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pie-tramos">
+            <div class="bq-campo">
+              <label class="bq-campo__etiqueta" for="vigencia-tramos">Rige desde</label>
+              <input id="vigencia-tramos" class="bq-entrada" type="date" formControlName="vigenteDesde" [min]="manana()" />
+            </div>
+            <p class="bq-tenue reglas">
+              El tramo 1 empieza en el día 0. Los días deben ir en aumento y la provisión, entre 0 % y
+              100 %, no puede bajar en tramos de mayor mora.
+            </p>
+          </div>
+
+          @if (problemaTramos() || (formularioTramos.touched && formularioTramos.invalid)) {
+            <p class="bq-campo__error" role="alert">
+              <bq-icono nombre="alerta" [tamano]="15" />
+              {{ problemaTramos() || 'Revise los valores: días enteros desde 0 y provisión entre 0 y 100 con hasta dos decimales' }}
+            </p>
+          }
+
+          <div class="acciones">
+            <button type="submit" class="bq-boton" [disabled]="guardando() || !!problemaTramos()">
+              <bq-icono nombre="check" [tamano]="16" />
+              {{ guardando() ? 'Guardando…' : 'Guardar la tabla de tramos' }}
+            </button>
+            <button type="button" class="bq-boton bq-boton--fantasma" (click)="cancelarTramos()">Cancelar</button>
+          </div>
+        </form>
+      }
     </section>
   }
 </div>
+
+@if (editando(); as parametro) {
+  <div class="bq-capa" (keydown.escape)="cerrar()">
+    <div class="bq-velo" (click)="cerrar()"></div>
+    <section class="bq-modal bq-animar" role="dialog" aria-modal="true" aria-labelledby="titulo-edicion" [bqEnfocar]="parametro">
+      <div class="bq-modal__cabecera">
+        <h2 id="titulo-edicion">{{ parametro.codigo }} · {{ parametro.nombre }}</h2>
+        <button type="button" class="bq-boton bq-boton--fantasma bq-boton--icono" (click)="cerrar()">
+          <bq-icono nombre="cerrar" etiqueta="Cerrar" />
+        </button>
+      </div>
+
+      <p class="bq-suave">
+        Valor vigente: <strong>{{ formato(parametro.codigo, parametro.valorNumerico) }}</strong>
+        desde el {{ parametro.vigenteDesde | fecha }}.
+      </p>
+
+      @if (errorModal()) {
+        <div class="bq-aviso bq-aviso--error" role="alert">
+          <bq-icono nombre="alerta" />
+          <p>{{ errorModal() }}</p>
+        </div>
+      }
+
+      <form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate class="formulario-modal">
+        <div class="bq-campo">
+          <label class="bq-campo__etiqueta" for="nuevo-valor">Nuevo valor</label>
+          @if (opciones(parametro.codigo); as lista) {
+            <select id="nuevo-valor" class="bq-selector" formControlName="valor" aria-describedby="ayuda-valor">
+              @for (opcion of lista; track opcion) {
+                <option [ngValue]="opcion">{{ opcion }} días</option>
+              }
+            </select>
+          } @else {
+            <div class="entrada-con-unidad">
+              <input
+                id="nuevo-valor"
+                class="bq-entrada"
+                type="number"
+                formControlName="valor"
+                [min]="limites(parametro.codigo).minimo"
+                [attr.max]="limites(parametro.codigo).maximo"
+                [step]="paso(parametro.codigo)"
+                aria-describedby="ayuda-valor"
+                [attr.aria-invalid]="formulario.controls.valor.touched && formulario.controls.valor.invalid"
+              />
+              <span class="unidad" aria-hidden="true">
+                @switch (tipo(parametro.codigo)) {
+                  @case ('MONTO') { USD }
+                  @case ('PORCENTAJE') { % }
+                  @case ('ENTERO') { meses }
+                  @default { × }
+                }
+              </span>
+            </div>
+          }
+          <p class="bq-campo__ayuda" id="ayuda-valor">{{ limites(parametro.codigo).texto }}</p>
+          @if (formulario.controls.valor.touched && formulario.controls.valor.invalid) {
+            <p class="bq-campo__error" role="alert">
+              <bq-icono nombre="alerta" [tamano]="15" />
+              @if (formulario.controls.valor.hasError('decimales')) {
+                @if (formulario.controls.valor.getError('decimales').permitidos === 0) {
+                  Debe ser un número entero
+                } @else {
+                  Admite como máximo {{ formulario.controls.valor.getError('decimales').permitidos }} decimales
+                }
+              } @else {
+                El valor debe estar en el rango permitido: {{ limites(parametro.codigo).texto | lowercase }}
+              }
+            </p>
+          }
+        </div>
+
+        <div class="bq-campo">
+          <label class="bq-campo__etiqueta" for="vigencia">Rige desde</label>
+          <input id="vigencia" class="bq-entrada" type="date" formControlName="vigenteDesde" [min]="manana()" aria-describedby="ayuda-vigencia" />
+          <p class="bq-campo__ayuda" id="ayuda-vigencia">
+            El día de negocio actual ({{ hoy() | fecha }}) se cierra con el valor vigente; el nuevo valor
+            se aplica desde el día que elija, como pronto el {{ manana() | fecha }}.
+          </p>
+          @if (formulario.controls.vigenteDesde.touched && formulario.controls.vigenteDesde.invalid) {
+            <p class="bq-campo__error" role="alert">
+              <bq-icono nombre="alerta" [tamano]="15" />
+              La vigencia debe ser desde el {{ manana() | fecha }} en adelante
+            </p>
+          }
+        </div>
+
+        <button class="bq-boton" type="submit" [disabled]="guardando()">
+          <bq-icono nombre="check" [tamano]="16" />
+          {{ guardando() ? 'Guardando…' : 'Guardar el nuevo valor' }}
+        </button>
+      </form>
+    </section>
+  </div>
+}
