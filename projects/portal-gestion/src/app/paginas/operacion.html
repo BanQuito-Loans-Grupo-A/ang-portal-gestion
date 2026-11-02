@@ -50,22 +50,23 @@
       </div>
     </div>
 
+    @if (detalle.estado !== 'CANCELADA') {
     <div class="columnas">
       <section class="bq-tarjeta bq-tarjeta--contorno">
         <h2>Abono extraordinario</h2>
         <p class="bq-tenue">
-          El abono mínimo es de USD 50,00. Si la operación está al día se liquida el interés
+          El abono mínimo es de {{ abonoMinimo() | dinero }}. Si la operación está al día se liquida el interés
           devengado y se recalcula la tabla; si tiene cuotas vencidas, el valor se aplica por
           prelación y la tabla no cambia.
         </p>
         <form [formGroup]="abono" (ngSubmit)="simularAbono()" novalidate class="formulario">
           <div class="bq-campo">
             <label class="bq-campo__etiqueta" for="monto">Monto del abono</label>
-            <input id="monto" class="bq-entrada" type="number" formControlName="monto" min="50" step="10" />
+            <input id="monto" class="bq-entrada" type="number" formControlName="monto" [min]="abonoMinimo()" step="10" />
             @if (abono.controls.monto.touched && abono.controls.monto.invalid) {
               <p class="bq-campo__error" role="alert">
                 <bq-icono nombre="alerta" [tamano]="15" />
-                El abono mínimo es de USD 50,00
+                El abono mínimo es de {{ abonoMinimo() | dinero }}
               </p>
             }
           </div>
@@ -76,11 +77,14 @@
               <option value="REDUCIR_PLAZO">Reducir el plazo, mantener la cuota</option>
             </select>
           </div>
-          <button class="bq-boton bq-boton--secundario" type="submit">Simular abono</button>
+          <button class="bq-boton bq-boton--secundario" type="submit" [disabled]="procesando()">
+            <bq-icono nombre="calculadora" [tamano]="16" />
+            {{ procesando() ? 'Calculando…' : 'Calcular el cuadro comparativo' }}
+          </button>
         </form>
 
         @if (prelacion(); as desglose) {
-          <div class="comparativo bq-animar">
+          <div class="comparativo bq-animar" [bqEnfocar]="desglose">
             <h3>El valor se aplicó por prelación</h3>
             <dl class="datos">
               <div class="bq-dato">
@@ -104,8 +108,44 @@
         }
 
         @if (cuadro(); as resultado) {
-          <div class="comparativo bq-animar">
-            <h3>Cuadro comparativo</h3>
+          <div class="comparativo bq-animar" [bqEnfocar]="resultado">
+            <h3>Cuadro comparativo: antes y después del abono</h3>
+            @if (cuotas().length) {
+              <div class="bq-tabla-envoltura">
+                <table class="bq-tabla">
+                  <caption>Valores de la operación antes y después de aplicar el abono</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Concepto</th>
+                      <th scope="col" class="bq-num">Antes</th>
+                      <th scope="col" class="bq-num">Después</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Saldo de capital</th>
+                      <td class="bq-num">{{ resultado.saldoAnterior | dinero }}</td>
+                      <td class="bq-num">{{ resultado.nuevoSaldo | dinero }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Cuota</th>
+                      <td class="bq-num">{{ cuotaPendiente()?.cuotaTotal | dinero }}</td>
+                      <td class="bq-num">{{ resultado.cuotas[0]?.cuotaTotal | dinero }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Cuotas pendientes</th>
+                      <td class="bq-num">{{ cuotasPendientes() }}</td>
+                      <td class="bq-num">{{ resultado.cuotasRestantes }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Última cuota</th>
+                      <td class="bq-num">{{ ultimaCuota()?.fechaVencimiento | fecha }}</td>
+                      <td class="bq-num">{{ resultado.fechaUltimaCuota | fecha }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            }
             <dl class="datos">
               <div class="bq-dato">
                 <dt class="bq-dato__clave">Interés liquidado</dt>
@@ -132,7 +172,8 @@
                 <dd class="bq-dato__valor">{{ resultado.fechaUltimaCuota | fecha }}</dd>
               </div>
             </dl>
-            <button type="button" class="bq-boton" (click)="registrarAbono()">
+            <button type="button" class="bq-boton" (click)="registrarAbono()" [disabled]="procesando()">
+              <bq-icono nombre="verificado" [tamano]="16" />
               Confirmar y registrar el abono
             </button>
           </div>
@@ -145,12 +186,13 @@
           Sin penalización. Comprende capital insoluto, interés devengado de la cuota en curso y los
           rubros de las cuotas vencidas.
         </p>
-        <button type="button" class="bq-boton bq-boton--secundario" (click)="consultarLiquidacion()">
+        <button type="button" class="bq-boton bq-boton--secundario" (click)="consultarLiquidacion()" [disabled]="procesando()">
+          <bq-icono nombre="calculadora" [tamano]="16" />
           Calcular valor de cancelación
         </button>
 
         @if (liquidacion(); as valor) {
-          <div class="comparativo bq-animar">
+          <div class="comparativo bq-animar" [bqEnfocar]="valor">
             <dl class="datos">
               <div class="bq-dato">
                 <dt class="bq-dato__clave">Capital insoluto</dt>
@@ -175,16 +217,17 @@
             </dl>
             <p class="bq-dato__clave">Valor total de cancelación</p>
             <p class="bq-dato__valor bq-dato__valor--grande destacado">{{ valor.valorCancelacion | dinero }}</p>
-            <button type="button" class="bq-boton bq-boton--peligro" (click)="cancelar()">
+            <button type="button" class="bq-boton bq-boton--peligro" (click)="cancelar()" [disabled]="procesando()">
               Confirmar el pago y cancelar
             </button>
           </div>
         }
       </section>
     </div>
+    }
 
-    <section>
-      <h2>Tabla de amortización vigente</h2>
+    <section id="tabla-vigente" [bqEnfocar]="tablaActualizada()" aria-labelledby="titulo-tabla">
+      <h2 id="titulo-tabla">Tabla de amortización vigente</h2>
       <div class="bq-tabla-envoltura">
         <table class="bq-tabla">
           <caption>Cuotas de la operación {{ detalle.numeroPrestamo }} con lo pagado por rubro</caption>
@@ -219,6 +262,78 @@
         </table>
       </div>
     </section>
+
+    <section>
+      <h2>Pagos aplicados</h2>
+      @if (pagos().length) {
+        <div class="bq-tabla-envoltura">
+          <table class="bq-tabla">
+            <caption>Pagos aplicados a la operación con su desglose por rubro, en orden de prelación</caption>
+            <thead>
+              <tr>
+                <th scope="col">Pago</th>
+                <th scope="col">Tipo</th>
+                <th scope="col" class="bq-num">Recibido</th>
+                <th scope="col" class="bq-num">Seguro</th>
+                <th scope="col" class="bq-num">Mora</th>
+                <th scope="col" class="bq-num">Interés</th>
+                <th scope="col" class="bq-num">Capital</th>
+                <th scope="col" class="bq-num">Anticipado</th>
+                <th scope="col" class="bq-num">Excedente</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (aplicado of pagos(); track aplicado.idPago) {
+                <tr>
+                  <th scope="row">{{ aplicado.idPago }}</th>
+                  <td>{{ aplicado.tipoPago | etiqueta }}</td>
+                  <td class="bq-num">{{ aplicado.montoRecibido | dinero }}</td>
+                  <td class="bq-num">{{ aplicado.aplicadoSeguro | dinero }}</td>
+                  <td class="bq-num">{{ aplicado.aplicadoMora | dinero }}</td>
+                  <td class="bq-num">{{ aplicado.aplicadoInteres | dinero }}</td>
+                  <td class="bq-num">{{ aplicado.aplicadoCapital | dinero }}</td>
+                  <td class="bq-num">{{ aplicado.aplicadoAnticipado | dinero }}</td>
+                  <td class="bq-num">{{ aplicado.excedenteDevolver | dinero }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="bq-tenue">Todavía no hay pagos aplicados a esta operación.</p>
+      }
+    </section>
+
+    @if (cargosMora().length) {
+      <section>
+        <h2>Cargos de mora</h2>
+        <div class="bq-tabla-envoltura">
+          <table class="bq-tabla">
+            <caption>Interés de mora acumulado por cuota vencida</caption>
+            <thead>
+              <tr>
+                <th scope="col">Cuota</th>
+                <th scope="col">Vencimiento</th>
+                <th scope="col" class="bq-num">Mora acumulada</th>
+                <th scope="col" class="bq-num">Mora pagada</th>
+                <th scope="col" class="bq-num">Mora pendiente</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (cargo of cargosMora(); track cargo.idCuota) {
+                <tr>
+                  <th scope="row">{{ cargo.numeroCuota }}</th>
+                  <td>{{ cargo.fechaVencimiento | fecha }}</td>
+                  <td class="bq-num">{{ cargo.moraAcumulada | dinero }}</td>
+                  <td class="bq-num">{{ cargo.moraPagada | dinero }}</td>
+                  <td class="bq-num">{{ cargo.moraPendiente | dinero }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
 
     @if (estados().length) {
       <section>

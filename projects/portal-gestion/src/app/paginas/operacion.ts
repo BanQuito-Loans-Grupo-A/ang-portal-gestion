@@ -1,17 +1,17 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
-  ApiBanquito, Cargando, ChipEstado, CuadroAbono, CuotaTabla, DesglosePrelacion, DineroPipe,
-  EtiquetaPipe, FechaPipe, Icono, Liquidacion, ModalidadAbono, MovimientoEstado, OperacionDetalle,
-  TasaPipe, mensajeDe,
+  ApiBanquito, Cargando, CargoMoraCuota, ChipEstado, CuadroAbono, CuotaTabla, DesglosePrelacion, DineroPipe,
+  Enfocar, EtiquetaPipe, FechaPipe, Icono, Liquidacion, ModalidadAbono, MovimientoEstado, OperacionDetalle,
+  PagoAplicado, TasaPipe, mensajeDe,
 } from 'shared';
 import { SesionService } from 'shared';
 
 @Component({
   selector: 'pg-operacion',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, Icono, Cargando, ChipEstado, DineroPipe, FechaPipe, TasaPipe, EtiquetaPipe],
+  imports: [ReactiveFormsModule, RouterLink, Icono, Cargando, ChipEstado, DineroPipe, FechaPipe, TasaPipe, EtiquetaPipe, Enfocar],
   templateUrl: './operacion.html',
   styleUrl: './operacion.css',
 })
@@ -25,12 +25,22 @@ export class Operacion {
   protected readonly operacion = signal<OperacionDetalle | null>(null);
   protected readonly cuotas = signal<CuotaTabla[]>([]);
   protected readonly estados = signal<MovimientoEstado[]>([]);
+  protected readonly pagos = signal<PagoAplicado[]>([]);
+  protected readonly cargosMora = signal<CargoMoraCuota[]>([]);
   protected readonly cuadro = signal<CuadroAbono | null>(null);
   protected readonly prelacion = signal<DesglosePrelacion | null>(null);
   protected readonly liquidacion = signal<Liquidacion | null>(null);
+  protected readonly tablaActualizada = signal(0);
+  protected readonly abonoMinimo = signal(50);
   protected readonly cargando = signal(true);
+  protected readonly procesando = signal(false);
   protected readonly error = signal('');
   protected readonly mensaje = signal('');
+
+  protected readonly pendientes = computed(() => this.cuotas().filter((cuota) => cuota.estado !== 'PAGADA'));
+  protected readonly cuotaPendiente = computed(() => this.pendientes()[0] ?? null);
+  protected readonly cuotasPendientes = computed(() => this.pendientes().length);
+  protected readonly ultimaCuota = computed(() => this.cuotas()[this.cuotas().length - 1] ?? null);
 
   protected readonly abono = this.fb.nonNullable.group({
     monto: [2000, [Validators.required, Validators.min(50)]],
@@ -38,6 +48,22 @@ export class Operacion {
   });
 
   constructor() {
+    if (this.ruta.snapshot.queryParamMap.get('desembolsada')) {
+      this.mensaje.set(`Préstamo ${this.numero} desembolsado. Esta es su tabla de amortización.`);
+      this.tablaActualizada.set(1);
+    }
+    this.cargarDatos();
+    this.api.parametros().subscribe((parametros) => {
+      const minimo = parametros.find((parametro) => parametro.codigo === 'PAR-12')?.valorNumerico;
+      if (minimo) {
+        this.abonoMinimo.set(minimo);
+        this.abono.controls.monto.setValidators([Validators.required, Validators.min(minimo)]);
+        this.abono.controls.monto.updateValueAndValidity();
+      }
+    });
+  }
+
+  private cargarDatos(): void {
     this.api.detalleOperacion(this.numero).subscribe({
       next: (valor) => {
         this.operacion.set(valor);
@@ -50,6 +76,11 @@ export class Operacion {
     });
     this.api.tablaAmortizacion(this.numero).subscribe((valor) => this.cuotas.set(valor));
     this.api.movimientosEstado(this.numero).subscribe((valor) => this.estados.set(valor));
+    this.api.pagosDeOperacion(this.numero, 0).subscribe((pagina) => this.pagos.set(pagina.content));
+    this.api.cargosMora(this.numero).subscribe({
+      next: (valor) => this.cargosMora.set(valor.filter((cargo) => cargo.moraAcumulada > 0)),
+      error: () => this.cargosMora.set([]),
+    });
   }
 
   private idAnalista(): number {
@@ -62,13 +93,24 @@ export class Operacion {
       return;
     }
     this.error.set('');
+    this.mensaje.set('');
+    this.prelacion.set(null);
+    this.procesando.set(true);
     this.api.simularAbono(this.numero, this.abono.getRawValue()).subscribe({
-      next: (valor) => this.cuadro.set(valor),
-      error: (fallo) => this.error.set(mensajeDe(fallo, 'No fue posible simular el abono')),
+      next: (valor) => {
+        this.cuadro.set(valor);
+        this.procesando.set(false);
+      },
+      error: (fallo) => {
+        this.cuadro.set(null);
+        this.error.set(mensajeDe(fallo, 'No fue posible simular el abono'));
+        this.procesando.set(false);
+      },
     });
   }
 
   protected registrarAbono(): void {
+    this.procesando.set(true);
     this.api.registrarAbono(this.numero, this.abono.getRawValue(), this.idAnalista()).subscribe({
       next: (valor) => {
         this.cuadro.set(null);
@@ -78,13 +120,20 @@ export class Operacion {
             ? `Abono extraordinario registrado con el pago ${valor.idPago}. La tabla se recalculó.`
             : `La operación tenía cuotas vencidas, así que el valor se aplicó por prelación en el pago ${valor.idPago}. La tabla no se recalculó.`,
         );
+        this.procesando.set(false);
+        this.cargarDatos();
+        this.tablaActualizada.update((valor) => valor + 1);
       },
-      error: (fallo) => this.error.set(mensajeDe(fallo, 'No fue posible registrar el abono')),
+      error: (fallo) => {
+        this.error.set(mensajeDe(fallo, 'No fue posible registrar el abono'));
+        this.procesando.set(false);
+      },
     });
   }
 
   protected consultarLiquidacion(): void {
     this.error.set('');
+    this.mensaje.set('');
     this.api.liquidacion(this.numero).subscribe({
       next: (valor) => this.liquidacion.set(valor),
       error: (fallo) => this.error.set(mensajeDe(fallo, 'No fue posible calcular la liquidación')),
@@ -92,12 +141,19 @@ export class Operacion {
   }
 
   protected cancelar(): void {
+    this.procesando.set(true);
     this.api.cancelar(this.numero, this.idAnalista()).subscribe({
       next: (valor) => {
         this.mensaje.set(`Operación cancelada con el pago ${valor.idPago}`);
         this.liquidacion.set(null);
+        this.procesando.set(false);
+        this.cargarDatos();
+        this.tablaActualizada.update((valor) => valor + 1);
       },
-      error: (fallo) => this.error.set(mensajeDe(fallo, 'No fue posible cancelar la operación')),
+      error: (fallo) => {
+        this.error.set(mensajeDe(fallo, 'No fue posible cancelar la operación'));
+        this.procesando.set(false);
+      },
     });
   }
 }

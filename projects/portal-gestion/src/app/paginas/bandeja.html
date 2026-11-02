@@ -4,7 +4,7 @@
       <p class="bq-pildora">Analista de crédito</p>
       <h1>Resuelva hoy, desembolse a tiempo.</h1>
       <p>
-        Solicitudes ordenadas por antigüedad. La TEA que asigne no puede superar el 16,77 % vigente y
+        Solicitudes ordenadas por antigüedad. La TEA que asigne no puede superar la máxima vigente ({{ textoTeaMaxima() }}) y
         el desembolso acredita el neto en la cuenta del cliente.
       </p>
     </div>
@@ -155,21 +155,39 @@
       <bq-vacio titulo="No hay solicitudes por desembolsar" detalle="Las solicitudes que apruebe aparecerán aquí." icono="verificado" />
     }
   }
+</div>
 
-  @if (seleccionada(); as solicitud) {
-    <div class="velo" (click)="cerrar()"></div>
-    <section class="panel bq-animar" role="dialog" aria-modal="true" aria-labelledby="titulo-resolucion">
-      <div class="panel__cabecera">
+@if (seleccionada(); as solicitud) {
+  <div class="bq-capa" (keydown.escape)="cerrar()">
+    <div class="bq-velo" (click)="cerrar()"></div>
+    <section
+      class="bq-modal bq-animar"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-resolucion"
+      [bqEnfocar]="solicitud"
+    >
+      <div class="bq-modal__cabecera">
         <h2 id="titulo-resolucion">Resolver la solicitud {{ solicitud.idSolicitud }}</h2>
         <button type="button" class="bq-boton bq-boton--fantasma bq-boton--icono" (click)="cerrar()">
           <bq-icono nombre="cerrar" etiqueta="Cerrar" />
         </button>
       </div>
 
-      <p class="bq-suave">
-        {{ solicitud.nombreCompletoCliente }} · {{ solicitud.montoSolicitado | dinero }} a
-        {{ solicitud.plazoMes }} meses
-      </p>
+      <dl class="resumen-modal">
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Cliente</dt>
+          <dd class="bq-dato__valor">{{ solicitud.nombreCompletoCliente }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Crédito</dt>
+          <dd class="bq-dato__valor">{{ solicitud.montoSolicitado | dinero }} a {{ solicitud.plazoMes }} meses</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Cuota sobre el remanente</dt>
+          <dd class="bq-dato__valor">{{ solicitud.porcentajeCuotaSobreRemanente | tasa }}</dd>
+        </div>
+      </dl>
 
       @if (error()) {
         <div class="bq-aviso bq-aviso--error" role="alert">
@@ -178,36 +196,62 @@
         </div>
       }
 
-      <form [formGroup]="aprobacion" (ngSubmit)="aprobar()" novalidate class="bloque">
-        <h3>Aprobar</h3>
-        <div class="bq-campo">
-          <label class="bq-campo__etiqueta" for="tea">TEA a asignar</label>
-          <input id="tea" class="bq-entrada" type="number" formControlName="tea" min="0.01" max="16.77" step="0.01" aria-describedby="ayuda-tea" />
-          <p class="bq-campo__ayuda" id="ayuda-tea">Máximo 16,77 % vigente</p>
-          @if (aprobacion.controls.tea.touched && aprobacion.controls.tea.invalid) {
-            <p class="bq-campo__error" role="alert">
-              <bq-icono nombre="alerta" [tamano]="15" />
-              La TEA debe estar entre 0,01 % y 16,77 %
-            </p>
-          }
-        </div>
-        <button class="bq-boton" type="submit" [disabled]="procesando()">Aprobar con esta tasa</button>
-      </form>
+      <form [formGroup]="resolucion" (ngSubmit)="resolver()" novalidate class="bloque">
+        <label class="bq-interruptor">
+          <input type="checkbox" formControlName="rechazar" aria-describedby="ayuda-rechazar" />
+          <span class="bq-interruptor__texto">
+            <strong>Rechazar esta solicitud</strong>
+            <span id="ayuda-rechazar" class="bq-tenue">
+              {{ rechazar() ? 'Indique el motivo; el cliente lo verá en sus solicitudes.' : 'Sin marcar, la solicitud se aprueba con la TEA que asigne.' }}
+            </span>
+          </span>
+        </label>
 
-      <form [formGroup]="rechazo" (ngSubmit)="rechazar()" novalidate class="bloque">
-        <h3>Rechazar</h3>
-        <div class="bq-campo">
-          <label class="bq-campo__etiqueta" for="motivo">Motivo del rechazo</label>
-          <textarea id="motivo" class="bq-entrada area" formControlName="motivo" rows="3" maxlength="500"></textarea>
-          @if (rechazo.controls.motivo.touched && rechazo.controls.motivo.invalid) {
-            <p class="bq-campo__error" role="alert">
-              <bq-icono nombre="alerta" [tamano]="15" />
-              Describa el motivo con al menos 10 caracteres
-            </p>
-          }
-        </div>
-        <button class="bq-boton bq-boton--peligro" type="submit" [disabled]="procesando()">Rechazar solicitud</button>
+        @if (!rechazar()) {
+          <div class="bq-campo bq-animar">
+            <label class="bq-campo__etiqueta" for="tea">
+              <bq-icono nombre="porcentaje" [tamano]="14" />
+              TEA definitiva a asignar
+            </label>
+            <input
+              id="tea"
+              class="bq-entrada"
+              type="number"
+              formControlName="tea"
+              min="0.01"
+              [max]="teaMaxima()"
+              step="0.01"
+              aria-describedby="ayuda-tea"
+            />
+            <p class="bq-campo__ayuda" id="ayuda-tea">Máximo {{ textoTeaMaxima() }} vigente</p>
+            @if (resolucion.controls.tea.touched && resolucion.controls.tea.invalid) {
+              <p class="bq-campo__error" role="alert">
+                <bq-icono nombre="alerta" [tamano]="15" />
+                La TEA debe estar entre 0,01 % y {{ textoTeaMaxima() }}
+              </p>
+            }
+          </div>
+          <button class="bq-boton" type="submit" [disabled]="procesando()">
+            <bq-icono nombre="check" [tamano]="16" />
+            {{ procesando() ? 'Aprobando…' : 'Aprobar con esta tasa' }}
+          </button>
+        } @else {
+          <div class="bq-campo bq-animar">
+            <label class="bq-campo__etiqueta" for="motivo">Motivo del rechazo</label>
+            <textarea id="motivo" class="bq-entrada area" formControlName="motivo" rows="3" maxlength="500"></textarea>
+            @if (resolucion.controls.motivo.touched && resolucion.controls.motivo.invalid) {
+              <p class="bq-campo__error" role="alert">
+                <bq-icono nombre="alerta" [tamano]="15" />
+                Describa el motivo con al menos 10 caracteres
+              </p>
+            }
+          </div>
+          <button class="bq-boton bq-boton--peligro" type="submit" [disabled]="procesando()">
+            <bq-icono nombre="cerrar" [tamano]="16" />
+            {{ procesando() ? 'Rechazando…' : 'Rechazar solicitud' }}
+          </button>
+        }
       </form>
     </section>
-  }
-</div>
+  </div>
+}

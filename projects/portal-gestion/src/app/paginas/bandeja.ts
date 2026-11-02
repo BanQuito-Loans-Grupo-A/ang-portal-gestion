@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   ApiBanquito,
   Cargando,
   DineroPipe,
+  Enfocar,
   EtiquetaPipe,
   FechaPipe,
   Icono,
@@ -28,6 +29,7 @@ import {
     FechaPipe,
     TasaPipe,
     EtiquetaPipe,
+    Enfocar,
   ],
   templateUrl: './bandeja.html',
   styleUrl: './bandeja.css',
@@ -36,6 +38,7 @@ export class Bandeja {
   private readonly api = inject(ApiBanquito);
   private readonly fb = inject(FormBuilder);
   private readonly sesion = inject(SesionService);
+  private readonly router = inject(Router);
   private readonly tasa = new TasaPipe();
 
   protected readonly solicitudes = signal<SolicitudBandeja[]>([]);
@@ -46,17 +49,42 @@ export class Bandeja {
   protected readonly procesando = signal(false);
   protected readonly vista = signal<'REGISTRADA' | 'APROBADA'>('REGISTRADA');
   protected readonly desembolsada = signal('');
+  protected readonly teaMaxima = signal(16.77);
+  protected readonly rechazar = signal(false);
+  protected readonly textoTeaMaxima = computed(() => this.tasa.transform(this.teaMaxima()));
 
-  protected readonly aprobacion = this.fb.nonNullable.group({
+  protected readonly resolucion = this.fb.nonNullable.group({
+    rechazar: [false],
     tea: [16, [Validators.required, Validators.min(0.01), Validators.max(16.77)]],
-  });
-
-  protected readonly rechazo = this.fb.nonNullable.group({
-    motivo: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
+    motivo: [{ value: '', disabled: true }, [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
   });
 
   constructor() {
     this.cargar();
+    this.api.parametros().subscribe({
+      next: (parametros) => {
+        const maxima = parametros.find((parametro) => parametro.codigo === 'PAR-05')?.valorNumerico;
+        if (maxima) {
+          this.teaMaxima.set(maxima);
+          this.resolucion.controls.tea.setValidators([Validators.required, Validators.min(0.01), Validators.max(maxima)]);
+          this.resolucion.controls.tea.updateValueAndValidity();
+        }
+      },
+    });
+    this.resolucion.controls.rechazar.valueChanges.subscribe((valor) => this.alternarRechazo(valor));
+  }
+
+  private alternarRechazo(rechazar: boolean): void {
+    const { tea, motivo } = this.resolucion.controls;
+    this.rechazar.set(rechazar);
+    this.error.set('');
+    if (rechazar) {
+      tea.disable();
+      motivo.enable();
+    } else {
+      motivo.disable();
+      tea.enable();
+    }
   }
 
   protected cargar(): void {
@@ -93,12 +121,8 @@ export class Bandeja {
       .desembolsar({ solicitudId: solicitud.idSolicitud, idAnalista: this.idAnalista() })
       .subscribe({
         next: (operacion) => {
-          this.mensaje.set(
-            `Préstamo ${operacion.numeroPrestamo} desembolsado a ${solicitud.nombreCompletoCliente}`,
-          );
-          this.desembolsada.set(operacion.numeroPrestamo);
           this.procesando.set(false);
-          this.cargar();
+          this.router.navigate(['/operaciones', operacion.numeroPrestamo], { queryParams: { desembolsada: 1 } });
         },
         error: (fallo) => {
           this.error.set(mensajeDe(fallo, 'No fue posible desembolsar la solicitud'));
@@ -120,26 +144,36 @@ export class Bandeja {
   }
 
   protected seleccionar(solicitud: SolicitudBandeja): void {
+    this.resolucion.reset({ rechazar: false, tea: Math.min(16, this.teaMaxima()), motivo: '' });
+    this.alternarRechazo(false);
     this.seleccionada.set(solicitud);
     this.mensaje.set('');
-    this.error.set('');
+  }
+
+  protected resolver(): void {
+    if (this.rechazar()) {
+      this.rechazarSolicitud();
+    } else {
+      this.aprobar();
+    }
   }
 
   protected cerrar(): void {
     this.seleccionada.set(null);
+    this.error.set('');
   }
 
-  protected aprobar(): void {
+  private aprobar(): void {
     const solicitud = this.seleccionada();
-    if (!solicitud || this.aprobacion.invalid) {
-      this.aprobacion.markAllAsTouched();
+    if (!solicitud || this.resolucion.invalid) {
+      this.resolucion.markAllAsTouched();
       return;
     }
     this.procesando.set(true);
     this.error.set('');
     this.api
       .aprobarSolicitud(solicitud.idSolicitud, {
-        tea: this.aprobacion.getRawValue().tea,
+        tea: this.resolucion.getRawValue().tea,
         idAnalista: this.idAnalista(),
       })
       .subscribe({
@@ -158,17 +192,17 @@ export class Bandeja {
       });
   }
 
-  protected rechazar(): void {
+  private rechazarSolicitud(): void {
     const solicitud = this.seleccionada();
-    if (!solicitud || this.rechazo.invalid) {
-      this.rechazo.markAllAsTouched();
+    if (!solicitud || this.resolucion.invalid) {
+      this.resolucion.markAllAsTouched();
       return;
     }
     this.procesando.set(true);
     this.error.set('');
     this.api
       .rechazarSolicitud(solicitud.idSolicitud, {
-        motivo: this.rechazo.getRawValue().motivo,
+        motivo: this.resolucion.getRawValue().motivo,
         idAnalista: this.idAnalista(),
       })
       .subscribe({
@@ -176,7 +210,6 @@ export class Bandeja {
           this.mensaje.set(`Solicitud ${respuesta.idSolicitud} rechazada`);
           this.procesando.set(false);
           this.seleccionada.set(null);
-          this.rechazo.reset();
           this.cargar();
         },
         error: (fallo) => {

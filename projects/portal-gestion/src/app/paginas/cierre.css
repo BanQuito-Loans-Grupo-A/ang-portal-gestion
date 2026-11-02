@@ -94,3 +94,7 @@
 .avance__barra {
   background: var(--bq-marca);
 }
+
+.confirmar {
+  max-width: 420px;
+}

@@ -39,6 +39,7 @@ export class Cierre {
   protected readonly seleccionada = signal('');
   protected readonly cargando = signal(true);
   protected readonly ejecutando = signal(false);
+  protected readonly confirmado = signal(false);
   protected readonly error = signal('');
   protected readonly progreso = signal<CierreRespuesta | null>(null);
   protected readonly nombresEtapa = ETAPAS;
@@ -62,6 +63,10 @@ export class Cierre {
   }
 
   protected ejecutar(): void {
+    if (!this.confirmado()) {
+      return;
+    }
+    this.confirmado.set(false);
     this.ejecutando.set(true);
     this.error.set('');
     this.api.iniciarCierre().subscribe({

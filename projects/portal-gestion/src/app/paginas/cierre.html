@@ -26,7 +26,21 @@
       </div>
       <div class="actual__acciones">
         <bq-chip-estado [estado]="estado.estado" />
-        <button type="button" class="bq-boton" (click)="ejecutar()" [disabled]="ejecutando() || estado.estado === 'CERRADO'">
+        @if (estado.estado === 'ABIERTO' && !ejecutando()) {
+          <label class="bq-interruptor confirmar">
+            <input type="checkbox" [checked]="confirmado()" (change)="confirmado.set($any($event.target).checked)" />
+            <span class="bq-interruptor__texto">
+              <strong>Confirmo el cierre del {{ estado.fechaNegocio | fecha }}</strong>
+              <span class="bq-tenue">La fecha de negocio avanzará al día siguiente y el día cerrado no se puede reabrir.</span>
+            </span>
+          </label>
+        }
+        <button
+          type="button"
+          class="bq-boton"
+          (click)="ejecutar()"
+          [disabled]="ejecutando() || estado.estado !== 'ABIERTO' || !confirmado()"
+        >
           <bq-icono nombre="rayo" [tamano]="18" />
           {{ ejecutando() ? 'Ejecutando el cierre…' : 'Ejecutar cierre de día' }}
         </button>
