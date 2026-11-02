@@ -1,0 +1,136 @@
+<div class="bq-pagina bq-pila bq-animar">
+  <header>
+    <hr class="bq-regla" />
+    <h1>Cierre de día</h1>
+    <p class="bq-suave">
+      El cierre se ejecuta una vez por fecha de negocio y, al terminar con éxito, avanza la fecha un
+      día. Un día ya cerrado no puede volver a procesarse.
+    </p>
+  </header>
+
+  @if (error()) {
+    <div class="bq-aviso bq-aviso--error" role="alert">
+      <bq-icono nombre="alerta" />
+      <p>{{ error() }}</p>
+    </div>
+  }
+
+  <section class="bq-tarjeta bq-tarjeta--contorno actual">
+    @if (fechaNegocio.estado(); as estado) {
+      <div>
+        <p class="bq-dato__clave">Fecha de negocio vigente</p>
+        <p class="bq-dato__valor bq-dato__valor--grande">{{ estado.fechaNegocio | fecha: 'larga' }}</p>
+        <p class="bq-tenue">
+          Último día cerrado: {{ estado.ultimaFechaCerrada | fecha }}
+        </p>
+      </div>
+      <div class="actual__acciones">
+        <bq-chip-estado [estado]="estado.estado" />
+        <button type="button" class="bq-boton" (click)="ejecutar()" [disabled]="ejecutando() || estado.estado === 'CERRADO'">
+          <bq-icono nombre="rayo" [tamano]="18" />
+          {{ ejecutando() ? 'Ejecutando el cierre…' : 'Ejecutar cierre de día' }}
+        </button>
+      </div>
+    }
+    @if (progreso(); as avance) {
+      <div class="avance" role="status">
+        <div class="bq-medidor__cabecera">
+          <span class="bq-dato__clave">Avance del cierre</span>
+          <strong>Etapa {{ avance.ultimaEtapaCompletada }} de 6</strong>
+        </div>
+        <div class="bq-medidor__pista">
+          <span class="bq-medidor__barra avance__barra" [style.width.%]="(avance.ultimaEtapaCompletada / 6) * 100"></span>
+        </div>
+        <p class="bq-tenue">{{ nombreEtapa(avance.ultimaEtapaCompletada + 1) }} en proceso</p>
+      </div>
+    }
+  </section>
+
+  <section>
+    <h2>Secuencia de etapas</h2>
+    <ol class="secuencia bq-animar-lista">
+      @for (nombre of nombresEtapa; track nombre) {
+        <li>
+          <span class="secuencia__numero">{{ $index + 1 }}</span>
+          <span>{{ nombre }}</span>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <section>
+    <h2>Historial de cierres</h2>
+    @if (cargando()) {
+      <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Cargando el historial" [filas]="3" /></div>
+    } @else if (cierres().length) {
+      <ul class="lista bq-animar-lista">
+        @for (cierre of cierres(); track cierre.fechaNegocio) {
+          <li class="bq-tarjeta bq-tarjeta--contorno">
+            <div class="bq-tarjeta__titulo">
+              <div>
+                <h3>{{ cierre.fechaNegocio | fecha: 'larga' }}</h3>
+                <p class="bq-tenue">
+                  Intento {{ cierre.intentoCierre }} · etapa {{ cierre.ultimaEtapaCompletada }} de 6
+                  @if (cierre.duracionSegundos !== null) {
+                    · {{ cierre.duracionSegundos }} s
+                  }
+                </p>
+              </div>
+              <bq-chip-estado [estado]="cierre.estado" />
+            </div>
+
+            @if (cierre.observacion) {
+              <p class="bq-suave observacion">{{ cierre.observacion }}</p>
+            }
+
+            <div class="acciones">
+              <button
+                type="button"
+                class="bq-boton bq-boton--secundario bq-boton--pequeno"
+                [attr.aria-expanded]="seleccionada() === cierre.fechaNegocio"
+                (click)="verEtapas(cierre.fechaNegocio)"
+              >
+                {{ seleccionada() === cierre.fechaNegocio ? 'Ocultar' : 'Ver' }} etapas
+              </button>
+              @if (cierre.estado === 'FALLIDO') {
+                <button type="button" class="bq-boton bq-boton--pequeno" (click)="reintentar(cierre.fechaNegocio)" [disabled]="ejecutando()">
+                  Reintentar desde la etapa fallida
+                </button>
+              }
+            </div>
+
+            @if (seleccionada() === cierre.fechaNegocio) {
+              <div class="bq-tabla-envoltura bq-animar etapas">
+                <table class="bq-tabla">
+                  <caption>Bitácora de etapas del cierre del {{ cierre.fechaNegocio | fecha }}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">N.º</th>
+                      <th scope="col">Etapa</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col" class="bq-num">Duración</th>
+                      <th scope="col">Observación</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (etapa of etapas(); track etapa.numeroEtapa) {
+                      <tr>
+                        <th scope="row">{{ etapa.numeroEtapa }}</th>
+                        <td>{{ nombreEtapa(etapa.numeroEtapa) }}</td>
+                        <td><bq-chip-estado [estado]="etapa.estado" /></td>
+                        <td class="bq-num">{{ etapa.duracionMilisegundos }} ms</td>
+                        <td class="observacion-celda">{{ etapa.observacion }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      <bq-vacio titulo="Todavía no se registran cierres" icono="reloj" />
+    }
+  </section>
+</div>

@@ -1,0 +1,213 @@
+<section class="bq-portada">
+  <div class="bq-contenedor bq-portada__rejilla">
+    <div class="bq-animar">
+      <p class="bq-pildora">Analista de crédito</p>
+      <h1>Resuelva hoy, desembolse a tiempo.</h1>
+      <p>
+        Solicitudes ordenadas por antigüedad. La TEA que asigne no puede superar el 16,77 % vigente y
+        el desembolso acredita el neto en la cuenta del cliente.
+      </p>
+    </div>
+    <img class="bq-portada__ilustracion bq-ilustracion" src="img/monumento.webp" alt="" width="1000" height="292" />
+  </div>
+</section>
+
+<div class="bq-contenedor bq-pila bq-animar">
+  <div class="pestanas" role="group" aria-label="Estado de las solicitudes">
+    <button
+      type="button"
+      class="pestana"
+      [class.pestana--activa]="vista() === 'REGISTRADA'"
+      [attr.aria-pressed]="vista() === 'REGISTRADA'"
+      (click)="cambiarVista('REGISTRADA')"
+    >
+      Por resolver
+    </button>
+    <button
+      type="button"
+      class="pestana"
+      [class.pestana--activa]="vista() === 'APROBADA'"
+      [attr.aria-pressed]="vista() === 'APROBADA'"
+      (click)="cambiarVista('APROBADA')"
+    >
+      Por desembolsar
+    </button>
+  </div>
+
+  @if (mensaje()) {
+    <div class="bq-aviso bq-aviso--exito" role="status">
+      <bq-icono nombre="verificado" />
+      <p>
+        {{ mensaje() }}
+        @if (desembolsada()) {
+          · <a [routerLink]="['/operaciones', desembolsada()]">Ver la operación</a>
+        }
+      </p>
+    </div>
+  }
+
+  @if (error() && !seleccionada()) {
+    <div class="bq-aviso bq-aviso--error" role="alert">
+      <bq-icono nombre="alerta" />
+      <p>{{ error() }}</p>
+    </div>
+  }
+
+  @if (cargando()) {
+    <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Cargando la bandeja" [filas]="4" /></div>
+  } @else if (solicitudes().length) {
+    <ul class="lista bq-animar-lista">
+      @for (solicitud of solicitudes(); track solicitud.idSolicitud) {
+        <li class="bq-tarjeta bq-tarjeta--contorno bq-tarjeta--interactiva">
+          <div class="bq-tarjeta__titulo">
+            <div>
+              <h2>{{ solicitud.nombreCompletoCliente }}</h2>
+              <p class="bq-tenue">
+                Cédula {{ solicitud.identificacionCliente }} · solicitud {{ solicitud.idSolicitud }} ·
+                registrada el {{ solicitud.fechaHoraRegistro | fecha }}
+              </p>
+            </div>
+            <span class="bq-chip" [class]="cumple(solicitud) ? 'bq-chip--exito' : 'bq-chip--error'">
+              {{ cumple(solicitud) ? 'Cumple la evaluación' : 'No cumple' }}
+            </span>
+          </div>
+
+          <div class="cuerpo">
+            <dl class="datos">
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Monto</dt>
+                <dd class="bq-dato__valor">{{ solicitud.montoSolicitado | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Plazo</dt>
+                <dd class="bq-dato__valor">{{ solicitud.plazoMes }} meses</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Sistema</dt>
+                <dd class="bq-dato__valor">{{ solicitud.sistemaAmortizacion | etiqueta }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Destino</dt>
+                <dd class="bq-dato__valor">{{ solicitud.destino | etiqueta }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Ingresos</dt>
+                <dd class="bq-dato__valor">{{ solicitud.ingresoMensual | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Gastos</dt>
+                <dd class="bq-dato__valor">{{ solicitud.gastoMensual | dinero }}</dd>
+              </div>
+            </dl>
+
+            <div class="capacidad">
+              <div class="bq-medidor" [class.bq-medidor--excede]="!cumple(solicitud)">
+                <div class="bq-medidor__cabecera">
+                  <span class="bq-dato__clave">Cuota sobre el remanente</span>
+                  <strong class="bq-medidor__valor">{{ solicitud.porcentajeCuotaSobreRemanente | tasa }}</strong>
+                </div>
+                <div
+                  class="bq-medidor__pista"
+                  role="img"
+                  [attr.aria-label]="
+                    'La cuota proyectada ocupa el ' +
+                    solicitud.porcentajeCuotaSobreRemanente +
+                    ' por ciento del remanente mensual, sobre un límite del 40 por ciento'
+                  "
+                >
+                  <span class="bq-medidor__barra" [style.width.%]="ancho(solicitud)"></span>
+                  <span class="bq-medidor__limite" style="left: 40%"></span>
+                </div>
+                <p class="bq-medidor__pie">
+                  <span>Proyectada {{ solicitud.cuotaProyectada | dinero }}</span>
+                  <span>Máxima {{ solicitud.cuotaMaximaAdmisible | dinero }}</span>
+                </p>
+              </div>
+
+              <p class="remanente">
+                <span class="bq-dato__clave">Remanente mensual</span>
+                <span class="bq-dato__valor">{{ solicitud.remanenteMensual | dinero }}</span>
+              </p>
+
+              @if (vista() === 'REGISTRADA') {
+                <button type="button" class="bq-boton bq-boton--pequeno" (click)="seleccionar(solicitud)">
+                  Resolver solicitud
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="bq-boton bq-boton--pequeno"
+                  [disabled]="procesando()"
+                  (click)="desembolsar(solicitud)"
+                >
+                  {{ procesando() ? 'Desembolsando…' : 'Desembolsar' }}
+                </button>
+              }
+            </div>
+          </div>
+        </li>
+      }
+    </ul>
+  } @else {
+    @if (vista() === 'REGISTRADA') {
+      <bq-vacio titulo="No hay solicitudes pendientes" detalle="Todas las solicitudes registradas fueron resueltas." icono="verificado" />
+    } @else {
+      <bq-vacio titulo="No hay solicitudes por desembolsar" detalle="Las solicitudes que apruebe aparecerán aquí." icono="verificado" />
+    }
+  }
+
+  @if (seleccionada(); as solicitud) {
+    <div class="velo" (click)="cerrar()"></div>
+    <section class="panel bq-animar" role="dialog" aria-modal="true" aria-labelledby="titulo-resolucion">
+      <div class="panel__cabecera">
+        <h2 id="titulo-resolucion">Resolver la solicitud {{ solicitud.idSolicitud }}</h2>
+        <button type="button" class="bq-boton bq-boton--fantasma bq-boton--icono" (click)="cerrar()">
+          <bq-icono nombre="cerrar" etiqueta="Cerrar" />
+        </button>
+      </div>
+
+      <p class="bq-suave">
+        {{ solicitud.nombreCompletoCliente }} · {{ solicitud.montoSolicitado | dinero }} a
+        {{ solicitud.plazoMes }} meses
+      </p>
+
+      @if (error()) {
+        <div class="bq-aviso bq-aviso--error" role="alert">
+          <bq-icono nombre="alerta" />
+          <p>{{ error() }}</p>
+        </div>
+      }
+
+      <form [formGroup]="aprobacion" (ngSubmit)="aprobar()" novalidate class="bloque">
+        <h3>Aprobar</h3>
+        <div class="bq-campo">
+          <label class="bq-campo__etiqueta" for="tea">TEA a asignar</label>
+          <input id="tea" class="bq-entrada" type="number" formControlName="tea" min="0.01" max="16.77" step="0.01" aria-describedby="ayuda-tea" />
+          <p class="bq-campo__ayuda" id="ayuda-tea">Máximo 16,77 % vigente</p>
+          @if (aprobacion.controls.tea.touched && aprobacion.controls.tea.invalid) {
+            <p class="bq-campo__error" role="alert">
+              <bq-icono nombre="alerta" [tamano]="15" />
+              La TEA debe estar entre 0,01 % y 16,77 %
+            </p>
+          }
+        </div>
+        <button class="bq-boton" type="submit" [disabled]="procesando()">Aprobar con esta tasa</button>
+      </form>
+
+      <form [formGroup]="rechazo" (ngSubmit)="rechazar()" novalidate class="bloque">
+        <h3>Rechazar</h3>
+        <div class="bq-campo">
+          <label class="bq-campo__etiqueta" for="motivo">Motivo del rechazo</label>
+          <textarea id="motivo" class="bq-entrada area" formControlName="motivo" rows="3" maxlength="500"></textarea>
+          @if (rechazo.controls.motivo.touched && rechazo.controls.motivo.invalid) {
+            <p class="bq-campo__error" role="alert">
+              <bq-icono nombre="alerta" [tamano]="15" />
+              Describa el motivo con al menos 10 caracteres
+            </p>
+          }
+        </div>
+        <button class="bq-boton bq-boton--peligro" type="submit" [disabled]="procesando()">Rechazar solicitud</button>
+      </form>
+    </section>
+  }
+</div>

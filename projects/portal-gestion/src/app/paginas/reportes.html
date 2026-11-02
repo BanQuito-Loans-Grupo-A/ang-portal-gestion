@@ -1,0 +1,208 @@
+<div class="bq-pagina bq-pila bq-animar">
+  <header>
+    <hr class="bq-regla" />
+    <h1>Reportes de cartera</h1>
+    <p class="bq-suave">
+      Los reportes leen la fotografía diaria de la fecha de corte. Solo las fechas ya cerradas tienen
+      información disponible.
+    </p>
+  </header>
+
+  <form class="bq-tarjeta bq-tarjeta--contorno filtros" [formGroup]="formulario" (ngSubmit)="consultar()" novalidate>
+    @if (vista() === 'roll') {
+      <div class="bq-campo">
+        <label class="bq-campo__etiqueta" for="fechaInicial">Fecha inicial</label>
+        <input id="fechaInicial" class="bq-entrada" type="date" formControlName="fechaInicial" />
+      </div>
+    }
+    <div class="bq-campo">
+      <label class="bq-campo__etiqueta" for="fechaCorte">
+        {{ vista() === 'roll' ? 'Fecha final' : 'Fecha de corte' }}
+      </label>
+      <input id="fechaCorte" class="bq-entrada" type="date" formControlName="fechaCorte" />
+    </div>
+    <button class="bq-boton" type="submit">
+      <bq-icono nombre="grafico" [tamano]="18" />
+      Generar
+    </button>
+  </form>
+
+  <div class="pestanas" role="tablist" aria-label="Reportes disponibles">
+    @for (item of vistas; track item.id) {
+      <button
+        type="button"
+        role="tab"
+        [id]="'pestana-' + item.id"
+        [attr.aria-selected]="vista() === item.id"
+        [attr.aria-controls]="'panel-' + item.id"
+        [attr.tabindex]="vista() === item.id ? 0 : -1"
+        [class.activa]="vista() === item.id"
+        (click)="seleccionar(item.id)"
+      >
+        {{ item.texto }}
+      </button>
+    }
+  </div>
+
+  <section aria-live="polite">
+    @if (error() && !cargando()) {
+      <div class="bq-aviso bq-aviso--error" role="alert">
+        <bq-icono nombre="alerta" />
+        <p>{{ error() }}</p>
+      </div>
+    }
+    @if (cargando()) {
+      <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Generando el reporte" [filas]="4" /></div>
+    } @else if (vista() === 'morosidad' && morosidad()) {
+      <div role="tabpanel" id="panel-morosidad" aria-labelledby="pestana-morosidad" class="bq-animar">
+        @if (morosidad(); as datos) {
+          <div class="bq-rejilla">
+            <div class="bq-tarjeta bq-tarjeta--contorno destacado">
+              <p class="bq-dato__clave">Índice de morosidad</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.indiceMorosidad | tasa }}</p>
+              <p class="bq-tenue">Al {{ datos.fechaCorte | fecha: 'larga' }}</p>
+            </div>
+            <div class="bq-tarjeta bq-tarjeta--contorno">
+              <p class="bq-dato__clave">Cartera bruta</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.carteraBruta | dinero }}</p>
+            </div>
+            <div class="bq-tarjeta bq-tarjeta--contorno">
+              <p class="bq-dato__clave">Vencida y en litigio</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.saldoVencidaYEnLitigio | dinero }}</p>
+            </div>
+            <div class="bq-tarjeta bq-tarjeta--contorno">
+              <p class="bq-dato__clave">Cartera castigada</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.saldoCastigada | dinero }}</p>
+              <p class="bq-tenue">Informativo, fuera de la cartera bruta</p>
+            </div>
+          </div>
+        }
+      </div>
+    } @else if (vista() === 'tramos' && tramos()) {
+      <div role="tabpanel" id="panel-tramos" aria-labelledby="pestana-tramos" class="bq-tabla-envoltura bq-animar">
+        @if (tramos(); as datos) {
+          <table class="bq-tabla">
+            <caption>Composición de la cartera por tramo de mora al {{ datos.fechaCorte | fecha }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Tramo</th>
+                <th scope="col">Estado</th>
+                <th scope="col" class="bq-num">Operaciones</th>
+                <th scope="col" class="bq-num">Saldo de capital</th>
+                <th scope="col" class="bq-num">% del total</th>
+                <th scope="col" class="bq-num">Provisión</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (fila of datos.tramos; track fila.numeroTramo) {
+                <tr>
+                  <th scope="row">{{ fila.numeroTramo }}</th>
+                  <td>{{ fila.estadoCartera }}</td>
+                  <td class="bq-num">{{ fila.operaciones }}</td>
+                  <td class="bq-num">{{ fila.saldoCapital | dinero }}</td>
+                  <td class="bq-num">{{ fila.porcentajeSaldo | tasa }}</td>
+                  <td class="bq-num">{{ fila.provision | dinero }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2">Total</td>
+                <td class="bq-num">{{ datos.total.operaciones }}</td>
+                <td class="bq-num">{{ datos.total.saldoCapital | dinero }}</td>
+                <td class="bq-num">{{ datos.total.porcentajeSaldo | tasa }}</td>
+                <td class="bq-num">{{ datos.total.provision | dinero }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        }
+      </div>
+    } @else if (vista() === 'salud' && salud()) {
+      <div role="tabpanel" id="panel-salud" aria-labelledby="pestana-salud" class="bq-pila bq-animar">
+        @if (salud(); as datos) {
+          <div class="bq-rejilla">
+            <div class="bq-tarjeta bq-tarjeta--contorno destacado">
+              <p class="bq-dato__clave">Índice de morosidad</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.indiceMorosidad | tasa }}</p>
+            </div>
+            <div class="bq-tarjeta bq-tarjeta--contorno">
+              <p class="bq-dato__clave">Cobertura de provisiones</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.coberturaProvisiones | tasa }}</p>
+            </div>
+            <div class="bq-tarjeta bq-tarjeta--contorno">
+              <p class="bq-dato__clave">Diez mayores clientes</p>
+              <p class="bq-dato__valor bq-dato__valor--grande">{{ datos.concentracionDiezMayores | tasa }}</p>
+            </div>
+          </div>
+
+          <div class="distribuciones">
+            @for (grupo of [
+              { titulo: 'Por monto original', filas: datos.distribucionPorMonto },
+              { titulo: 'Por plazo', filas: datos.distribucionPorPlazo },
+              { titulo: 'Por sistema de amortización', filas: datos.distribucionPorSistema }
+            ]; track grupo.titulo) {
+              <section class="bq-tarjeta bq-tarjeta--contorno">
+                <h3>{{ grupo.titulo }}</h3>
+                <ul class="barras">
+                  @for (fila of grupo.filas; track fila.categoria) {
+                    <li>
+                      <div class="barras__fila">
+                        <span>{{ fila.categoria }}</span>
+                        <span class="bq-numero">{{ fila.saldoCapital | dinero }}</span>
+                      </div>
+                      <div
+                        class="barras__pista"
+                        role="img"
+                        [attr.aria-label]="fila.categoria + ': ' + fila.porcentajeSaldo + ' por ciento del saldo, ' + fila.operaciones + ' operaciones'"
+                      >
+                        <span class="barras__valor" [style.width.%]="fila.porcentajeSaldo"></span>
+                      </div>
+                      <p class="bq-tenue">{{ fila.operaciones }} operaciones · {{ fila.porcentajeSaldo | tasa }}</p>
+                    </li>
+                  }
+                </ul>
+              </section>
+            }
+          </div>
+        }
+      </div>
+    } @else if (vista() === 'roll' && roll()) {
+      <div role="tabpanel" id="panel-roll" aria-labelledby="pestana-roll" class="bq-animar">
+        @if (roll(); as datos) {
+          <div class="bq-tabla-envoltura">
+            <table class="bq-tabla">
+              <caption>
+                Migración del saldo entre el {{ datos.fechaInicial | fecha }} y el
+                {{ datos.fechaFinal | fecha }}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Tramo inicial</th>
+                  <th scope="col" class="bq-num">Operaciones</th>
+                  <th scope="col" class="bq-num">Saldo inicial</th>
+                  <th scope="col">Destino del saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (fila of datos.filas; track fila.tramoInicial) {
+                  <tr>
+                    <th scope="row">Tramo {{ fila.tramoInicial }}</th>
+                    <td class="bq-num">{{ fila.operaciones }}</td>
+                    <td class="bq-num">{{ fila.saldoInicial | dinero }}</td>
+                    <td class="destinos">
+                      @for (destino of fila.destinos; track destino.destino) {
+                        <span class="bq-chip" [class]="claseEvolucion(destino.evolucion)" [attr.title]="textoEvolucion(destino.evolucion)">
+                          {{ nombreDestino(destino.destino) }} · {{ destino.porcentajeSaldo | tasa }}
+                        </span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>

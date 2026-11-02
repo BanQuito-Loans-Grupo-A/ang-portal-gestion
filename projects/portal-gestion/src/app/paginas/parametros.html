@@ -1,0 +1,90 @@
+<div class="bq-pagina bq-pila bq-animar">
+  <header>
+    <hr class="bq-regla" />
+    <h1>Parámetros y tramos de cartera</h1>
+    <p class="bq-suave">
+      Los valores se cambian por configuración, sin recompilar, y rigen desde el siguiente cierre de
+      día. Cada parámetro tiene su fecha de vigencia.
+    </p>
+  </header>
+
+  @if (cargando()) {
+    <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Cargando parámetros" [filas]="6" /></div>
+  } @else {
+    <section>
+      <h2>Parámetros del sistema</h2>
+      <div class="bq-tabla-envoltura">
+        <table class="bq-tabla">
+          <caption>Parámetros vigentes del core de préstamos</caption>
+          <thead>
+            <tr>
+              <th scope="col">Código</th>
+              <th scope="col">Parámetro</th>
+              <th scope="col" class="bq-num">Valor</th>
+              <th scope="col">Vigente desde</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (parametro of parametros(); track parametro.codigo) {
+              <tr>
+                <th scope="row">{{ parametro.codigo }}</th>
+                <td class="nombre">{{ parametro.nombre }}</td>
+                <td class="bq-num">
+                  @if (parametro.valorNumerico !== null) {
+                    {{ parametro.valorNumerico }}
+                  } @else {
+                    {{ parametro.valorFecha | fecha }}
+                  }
+                </td>
+                <td>{{ parametro.vigenteDesde | fecha }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tabla de parámetros de cartera</h2>
+      <div class="bq-tabla-envoltura">
+        <table class="bq-tabla">
+          <caption>
+            Tramos por días de mora, con su estado, devengo en resultados y porcentaje de provisión
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Tramo</th>
+              <th scope="col" class="bq-num">Desde día</th>
+              <th scope="col">Estado de cartera</th>
+              <th scope="col">Devenga en resultados</th>
+              <th scope="col">Acumula mora</th>
+              <th scope="col" class="bq-num">Provisión</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tramo of tramos(); track tramo.numeroTramo) {
+              <tr>
+                <th scope="row">{{ tramo.numeroTramo }}</th>
+                <td class="bq-num">{{ tramo.diaMoraMinimo }}</td>
+                <td>{{ tramo.estadoCartera }}</td>
+                <td>
+                  <span class="marca" [class.marca--no]="!tramo.devengaEnResultado">
+                    <bq-icono [nombre]="tramo.devengaEnResultado ? 'verificado' : 'cerrar'" [tamano]="15" />
+                    {{ tramo.devengaEnResultado ? 'Sí' : 'No' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="marca" [class.marca--no]="!tramo.acumulaMora">
+                    <bq-icono [nombre]="tramo.acumulaMora ? 'verificado' : 'cerrar'" [tamano]="15" />
+                    {{ tramo.acumulaMora ? 'Sí' : 'No' }}
+                  </span>
+                </td>
+                <td class="bq-num">{{ tramo.porcentajeProvision }} %</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>

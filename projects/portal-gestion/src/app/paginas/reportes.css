@@ -1,0 +1,106 @@
+.filtros {
+  display: flex;
+  gap: var(--bq-esp-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filtros .bq-campo {
+  flex: 1 1 200px;
+}
+
+.pestanas {
+  display: flex;
+  gap: var(--bq-esp-1);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--bq-borde);
+}
+
+.pestanas button {
+  padding: var(--bq-esp-3) var(--bq-esp-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--bq-texto-suave);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--bq-dur-rapida) var(--bq-salida),
+    border-color var(--bq-dur-rapida) var(--bq-salida);
+}
+
+.pestanas button:hover {
+  color: var(--bq-texto);
+}
+
+.pestanas button.activa {
+  color: var(--bq-marca);
+  border-bottom-color: var(--bq-marca);
+}
+
+.destacado {
+  border-color: var(--bq-marca);
+}
+
+.destacado .bq-dato__valor {
+  color: var(--bq-marca);
+}
+
+.bq-tarjeta p {
+  margin: 0;
+}
+
+.distribuciones {
+  display: grid;
+  gap: var(--bq-esp-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+.distribuciones h3 {
+  margin: 0 0 var(--bq-esp-4);
+}
+
+.barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--bq-esp-4);
+}
+
+.barras__fila {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bq-esp-3);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: var(--bq-esp-2);
+}
+
+.barras__pista {
+  height: 10px;
+  border-radius: var(--bq-radio-pildora);
+  background: var(--bq-superficie-2);
+  overflow: hidden;
+}
+
+.barras__valor {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bq-marca);
+  transition: width var(--bq-dur-lenta) var(--bq-salida);
+}
+
+.barras p {
+  margin: var(--bq-esp-1) 0 0;
+}
+
+.destinos {
+  display: flex;
+  gap: var(--bq-esp-2);
+  flex-wrap: wrap;
+  white-space: normal;
+  min-width: 280px;
+}

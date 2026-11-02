@@ -1,0 +1,16 @@
+.nombre {
+  white-space: normal;
+  min-width: 260px;
+}
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bq-esp-1);
+  font-weight: 600;
+  color: var(--bq-exito);
+}
+
+.marca--no {
+  color: var(--bq-texto-tenue);
+}

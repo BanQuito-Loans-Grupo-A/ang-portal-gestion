@@ -1,0 +1,67 @@
+<div class="bq-pagina bq-pila bq-animar">
+  <header>
+    <hr class="bq-regla" />
+    <h1>Operaciones</h1>
+    <p class="bq-suave">Busque por número de operación o por cédula del cliente.</p>
+  </header>
+
+  <form class="bq-tarjeta bq-tarjeta--contorno buscador" [formGroup]="formulario" (ngSubmit)="buscar()" novalidate role="search">
+    <div class="bq-campo">
+      <label class="bq-campo__etiqueta" for="termino">Número de operación o cédula</label>
+      <input id="termino" class="bq-entrada" formControlName="termino" placeholder="PR-0001 o 0213732191" autocomplete="off" />
+    </div>
+    <button class="bq-boton" type="submit">
+      <bq-icono nombre="buscar" [tamano]="18" />
+      Buscar
+    </button>
+  </form>
+
+  <section aria-live="polite">
+    @if (cargando()) {
+      <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Buscando operaciones" [filas]="5" /></div>
+    } @else if (operaciones().length) {
+      <div class="bq-tabla-envoltura bq-animar">
+        <table class="bq-tabla">
+          <caption>{{ operaciones().length }} operaciones encontradas</caption>
+          <thead>
+            <tr>
+              <th scope="col">Operación</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Sistema</th>
+              <th scope="col" class="bq-num">Monto</th>
+              <th scope="col" class="bq-num">Saldo</th>
+              <th scope="col" class="bq-num">Mora</th>
+              <th scope="col">Estado</th>
+              <th scope="col"><span class="bq-solo-lectores">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (operacion of operaciones(); track operacion.idPrestamo) {
+              <tr>
+                <th scope="row">{{ operacion.numeroPrestamo }}</th>
+                <td>
+                  {{ operacion.nombreCompletoCliente }}
+                  <span class="bq-tenue">{{ operacion.identificacionCliente }}</span>
+                </td>
+                <td>{{ operacion.sistemaAmortizacion | etiqueta }}</td>
+                <td class="bq-num">{{ operacion.montoAprobado | dinero }}</td>
+                <td class="bq-num">{{ operacion.saldoCapital | dinero }}</td>
+                <td class="bq-num">{{ operacion.diaMora }}</td>
+                <td><bq-chip-estado [estado]="operacion.estado" /></td>
+                <td>
+                  <a class="bq-boton bq-boton--secundario bq-boton--pequeno" [routerLink]="['/operaciones', operacion.numeroPrestamo]">
+                    Abrir
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (buscado()) {
+      <bq-vacio titulo="Sin resultados" detalle="Revise el número de operación o la cédula ingresada." icono="buscar" />
+    } @else {
+      <bq-vacio titulo="Busque una operación" detalle="Ingrese el número de la operación o la cédula del cliente." icono="buscar" />
+    }
+  </section>
+</div>

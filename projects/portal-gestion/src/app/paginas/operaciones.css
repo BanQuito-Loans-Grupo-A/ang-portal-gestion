@@ -1,0 +1,14 @@
+.buscador {
+  display: flex;
+  gap: var(--bq-esp-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.buscador .bq-campo {
+  flex: 1 1 260px;
+}
+
+.bq-tabla td .bq-tenue {
+  display: block;
+}

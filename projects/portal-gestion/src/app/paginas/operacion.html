@@ -1,0 +1,242 @@
+<div class="bq-pagina bq-pila bq-animar">
+  <a class="volver" routerLink="/operaciones">
+    <bq-icono nombre="flecha-izquierda" [tamano]="16" />
+    Volver a operaciones
+  </a>
+
+  @if (cargando()) {
+    <div class="bq-tarjeta bq-tarjeta--contorno"><bq-cargando mensaje="Cargando la operación" [filas]="5" /></div>
+  } @else if (operacion(); as detalle) {
+    <header class="cabecera">
+      <div>
+        <h1>{{ detalle.numeroPrestamo }}</h1>
+        <p class="bq-suave">
+          {{ detalle.nombreCompletoCliente }} · cédula {{ detalle.identificacionCliente }} ·
+          desembolsado el {{ detalle.fechaDesembolso | fecha }}
+        </p>
+      </div>
+      <bq-chip-estado [estado]="detalle.estado" />
+    </header>
+
+    @if (mensaje()) {
+      <div class="bq-aviso bq-aviso--exito" role="status">
+        <bq-icono nombre="verificado" />
+        <p>{{ mensaje() }}</p>
+      </div>
+    }
+    @if (error()) {
+      <div class="bq-aviso bq-aviso--error" role="alert">
+        <bq-icono nombre="alerta" />
+        <p>{{ error() }}</p>
+      </div>
+    }
+
+    <div class="bq-rejilla">
+      <div class="bq-tarjeta bq-tarjeta--contorno">
+        <p class="bq-dato__clave">Saldo de capital</p>
+        <p class="bq-dato__valor bq-dato__valor--grande">{{ detalle.saldoCapital | dinero }}</p>
+      </div>
+      <div class="bq-tarjeta bq-tarjeta--contorno">
+        <p class="bq-dato__clave">Días de mora</p>
+        <p class="bq-dato__valor bq-dato__valor--grande">{{ detalle.diaMora }}</p>
+      </div>
+      <div class="bq-tarjeta bq-tarjeta--contorno">
+        <p class="bq-dato__clave">Provisión constituida</p>
+        <p class="bq-dato__valor bq-dato__valor--grande">{{ detalle.provision | dinero }}</p>
+      </div>
+      <div class="bq-tarjeta bq-tarjeta--contorno">
+        <p class="bq-dato__clave">TEA asignada</p>
+        <p class="bq-dato__valor bq-dato__valor--grande">{{ detalle.teaAsignada | tasa }}</p>
+      </div>
+    </div>
+
+    <div class="columnas">
+      <section class="bq-tarjeta bq-tarjeta--contorno">
+        <h2>Abono extraordinario</h2>
+        <p class="bq-tenue">
+          El abono mínimo es de USD 50,00. Si la operación está al día se liquida el interés
+          devengado y se recalcula la tabla; si tiene cuotas vencidas, el valor se aplica por
+          prelación y la tabla no cambia.
+        </p>
+        <form [formGroup]="abono" (ngSubmit)="simularAbono()" novalidate class="formulario">
+          <div class="bq-campo">
+            <label class="bq-campo__etiqueta" for="monto">Monto del abono</label>
+            <input id="monto" class="bq-entrada" type="number" formControlName="monto" min="50" step="10" />
+            @if (abono.controls.monto.touched && abono.controls.monto.invalid) {
+              <p class="bq-campo__error" role="alert">
+                <bq-icono nombre="alerta" [tamano]="15" />
+                El abono mínimo es de USD 50,00
+              </p>
+            }
+          </div>
+          <div class="bq-campo">
+            <label class="bq-campo__etiqueta" for="modalidad">Modalidad</label>
+            <select id="modalidad" class="bq-selector" formControlName="modalidad">
+              <option value="REDUCIR_CUOTA">Reducir la cuota, mantener el plazo</option>
+              <option value="REDUCIR_PLAZO">Reducir el plazo, mantener la cuota</option>
+            </select>
+          </div>
+          <button class="bq-boton bq-boton--secundario" type="submit">Simular abono</button>
+        </form>
+
+        @if (prelacion(); as desglose) {
+          <div class="comparativo bq-animar">
+            <h3>El valor se aplicó por prelación</h3>
+            <dl class="datos">
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">A seguro</dt>
+                <dd class="bq-dato__valor">{{ desglose.aplicadoSeguro | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">A mora</dt>
+                <dd class="bq-dato__valor">{{ desglose.aplicadoMora | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">A interés</dt>
+                <dd class="bq-dato__valor">{{ desglose.aplicadoInteres | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">A capital</dt>
+                <dd class="bq-dato__valor">{{ desglose.aplicadoCapital | dinero }}</dd>
+              </div>
+            </dl>
+          </div>
+        }
+
+        @if (cuadro(); as resultado) {
+          <div class="comparativo bq-animar">
+            <h3>Cuadro comparativo</h3>
+            <dl class="datos">
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Interés liquidado</dt>
+                <dd class="bq-dato__valor">{{ resultado.interesLiquidado | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Capital abonado</dt>
+                <dd class="bq-dato__valor">{{ resultado.capitalAbonado | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Saldo anterior</dt>
+                <dd class="bq-dato__valor">{{ resultado.saldoAnterior | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Nuevo saldo</dt>
+                <dd class="bq-dato__valor">{{ resultado.nuevoSaldo | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Cuotas restantes</dt>
+                <dd class="bq-dato__valor">{{ resultado.cuotasRestantes }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Última cuota</dt>
+                <dd class="bq-dato__valor">{{ resultado.fechaUltimaCuota | fecha }}</dd>
+              </div>
+            </dl>
+            <button type="button" class="bq-boton" (click)="registrarAbono()">
+              Confirmar y registrar el abono
+            </button>
+          </div>
+        }
+      </section>
+
+      <section class="bq-tarjeta bq-tarjeta--contorno">
+        <h2>Cancelación anticipada</h2>
+        <p class="bq-tenue">
+          Sin penalización. Comprende capital insoluto, interés devengado de la cuota en curso y los
+          rubros de las cuotas vencidas.
+        </p>
+        <button type="button" class="bq-boton bq-boton--secundario" (click)="consultarLiquidacion()">
+          Calcular valor de cancelación
+        </button>
+
+        @if (liquidacion(); as valor) {
+          <div class="comparativo bq-animar">
+            <dl class="datos">
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Capital insoluto</dt>
+                <dd class="bq-dato__valor">{{ valor.capitalInsoluto | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Interés cuota en curso</dt>
+                <dd class="bq-dato__valor">{{ valor.interesCuotaEnCurso | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Intereses vencidos</dt>
+                <dd class="bq-dato__valor">{{ valor.interesesVencidos | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Seguros vencidos</dt>
+                <dd class="bq-dato__valor">{{ valor.segurosVencidos | dinero }}</dd>
+              </div>
+              <div class="bq-dato">
+                <dt class="bq-dato__clave">Mora vencida</dt>
+                <dd class="bq-dato__valor">{{ valor.moraVencida | dinero }}</dd>
+              </div>
+            </dl>
+            <p class="bq-dato__clave">Valor total de cancelación</p>
+            <p class="bq-dato__valor bq-dato__valor--grande destacado">{{ valor.valorCancelacion | dinero }}</p>
+            <button type="button" class="bq-boton bq-boton--peligro" (click)="cancelar()">
+              Confirmar el pago y cancelar
+            </button>
+          </div>
+        }
+      </section>
+    </div>
+
+    <section>
+      <h2>Tabla de amortización vigente</h2>
+      <div class="bq-tabla-envoltura">
+        <table class="bq-tabla">
+          <caption>Cuotas de la operación {{ detalle.numeroPrestamo }} con lo pagado por rubro</caption>
+          <thead>
+            <tr>
+              <th scope="col">N.º</th>
+              <th scope="col">Vencimiento</th>
+              <th scope="col" class="bq-num">Capital</th>
+              <th scope="col" class="bq-num">Interés</th>
+              <th scope="col" class="bq-num">Seguro</th>
+              <th scope="col" class="bq-num">Cuota total</th>
+              <th scope="col" class="bq-num">Pagado</th>
+              <th scope="col" class="bq-num">Mora</th>
+              <th scope="col">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cuota of cuotas(); track cuota.idCuota) {
+              <tr>
+                <th scope="row">{{ cuota.numeroCuota }}</th>
+                <td>{{ cuota.fechaVencimiento | fecha }}</td>
+                <td class="bq-num">{{ cuota.capital | dinero }}</td>
+                <td class="bq-num">{{ cuota.interes | dinero }}</td>
+                <td class="bq-num">{{ cuota.seguro | dinero }}</td>
+                <td class="bq-num">{{ cuota.cuotaTotal | dinero }}</td>
+                <td class="bq-num">{{ cuota.capitalPagado + cuota.interesPagado + cuota.seguroPagado | dinero }}</td>
+                <td class="bq-num">{{ cuota.moraAcumulada | dinero }}</td>
+                <td><bq-chip-estado [estado]="cuota.estado" /></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (estados().length) {
+      <section>
+        <h2>Movimientos de estado</h2>
+        <ol class="linea bq-animar-lista">
+          @for (movimiento of estados(); track movimiento.fechaHoraRegistro) {
+            <li>
+              <bq-chip-estado [estado]="movimiento.estadoNuevo" />
+              <span class="bq-tenue">
+                {{ movimiento.fechaHoraRegistro | fecha }} · {{ movimiento.diaMora }} días de mora
+                @if (movimiento.estadoAnterior) {
+                  · desde {{ movimiento.estadoAnterior | etiqueta }}
+                }
+              </span>
+            </li>
+          }
+        </ol>
+      </section>
+    }
+  }
+</div>
