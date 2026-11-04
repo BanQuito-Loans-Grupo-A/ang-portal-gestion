@@ -25,6 +25,7 @@ const DIAS: Record<string, string> = {
 
 interface CierreProgramadoPortal {
   fechaNegocio: string;
+  fecha: string;
   hora: string;
   instante: number;
 }
@@ -46,7 +47,7 @@ function leerProgramacion(): CierreProgramadoPortal | null {
   try {
     const texto = localStorage.getItem(CLAVE_PROGRAMACION);
     const valor = texto ? (JSON.parse(texto) as CierreProgramadoPortal) : null;
-    return valor && typeof valor.instante === 'number' ? valor : null;
+    return valor && typeof valor.instante === 'number' && typeof valor.fecha === 'string' ? valor : null;
   } catch {
     return null;
   }
@@ -64,18 +65,27 @@ function guardarProgramacion(valor: CierreProgramadoPortal | null): void {
   }
 }
 
-function proximaOcurrencia(hora: string): number {
-  const [h, m] = hora.split(':').map(Number);
-  const fecha = new Date();
-  fecha.setHours(h, m, 0, 0);
-  if (fecha.getTime() <= Date.now()) {
-    fecha.setDate(fecha.getDate() + 1);
-  }
-  return fecha.getTime();
+function fechaLocal(instante: number): string {
+  const fecha = new Date(instante);
+  return `${fecha.getFullYear()}-${dosDigitos(fecha.getMonth() + 1)}-${dosDigitos(fecha.getDate())}`;
 }
 
-function esHoy(instante: number): boolean {
-  return new Date(instante).toDateString() === new Date().toDateString();
+function instanteDe(fecha: string, hora: string): number {
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  const [h, m] = hora.split(':').map(Number);
+  return new Date(anio, mes - 1, dia, h, m, 0, 0).getTime();
+}
+
+function describirDia(instante: number): string {
+  const fecha = fechaLocal(instante);
+  if (fecha === fechaLocal(Date.now())) {
+    return 'Hoy';
+  }
+  if (fecha === fechaLocal(Date.now() + 86400000)) {
+    return 'Mañana';
+  }
+  const [anio, mes, dia] = fecha.split('-');
+  return `El ${dia}/${mes}/${anio}`;
 }
 
 const ETAPAS = [
@@ -114,14 +124,16 @@ export class Cierre {
     return programacion ? describirCron(programacion.cron) : '';
   });
   protected readonly programado = signal<CierreProgramadoPortal | null>(leerProgramacion());
-  protected readonly horaProgramada = signal(this.programado()?.hora ?? '');
+  protected readonly fechaProgramada = signal(fechaLocal(Date.now()));
+  protected readonly horaProgramada = signal('');
+  protected readonly fechaMinima = fechaLocal(Date.now());
   protected readonly errorProgramacion = signal('');
   protected readonly avisoProgramacion = signal('');
   private readonly ahora = signal(Date.now());
   private horaEnEjecucion = '';
   protected readonly diaProgramado = computed(() => {
     const programado = this.programado();
-    return programado && esHoy(programado.instante) ? 'Hoy' : 'Mañana';
+    return programado ? describirDia(programado.instante) : '';
   });
   protected readonly restante = computed(() => {
     const programado = this.programado();
@@ -154,24 +166,25 @@ export class Cierre {
   }
 
   protected programar(): void {
+    const fecha = this.fechaProgramada();
     const hora = this.horaProgramada();
     const estado = this.fechaNegocio.estado();
     this.errorProgramacion.set('');
     this.avisoProgramacion.set('');
-    if (!/^\d{2}:\d{2}$/.test(hora)) {
-      this.errorProgramacion.set('Indique la hora del cierre');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{2}:\d{2}$/.test(hora)) {
+      this.errorProgramacion.set('Indique la fecha y la hora del cierre');
       return;
     }
-    const instante = proximaOcurrencia(hora);
+    const instante = instanteDe(fecha, hora);
     if (instante - Date.now() < 60000) {
-      this.errorProgramacion.set('Elija una hora al menos un minuto después de la actual');
+      this.errorProgramacion.set('Elija una fecha y hora al menos un minuto después de la actual');
       return;
     }
     if (!estado || estado.estado !== 'ABIERTO') {
       this.errorProgramacion.set('Solo se puede programar el cierre de un día abierto');
       return;
     }
-    const valor = { fechaNegocio: estado.fechaNegocio, hora, instante };
+    const valor = { fechaNegocio: estado.fechaNegocio, fecha, hora, instante };
     guardarProgramacion(valor);
     this.programado.set(valor);
   }

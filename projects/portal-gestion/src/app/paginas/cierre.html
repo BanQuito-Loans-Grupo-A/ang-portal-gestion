@@ -86,14 +86,25 @@
         <p class="bq-dato__clave">Programar desde el Portal</p>
         @if (programado(); as programa) {
           <p class="bq-dato__valor">{{ diaProgramado() }} a las {{ programa.hora }} · faltan {{ restante() }}</p>
-          <p class="bq-tenue">Cierre del {{ programa.fechaNegocio | fecha }}. Mantenga esta página abierta hasta esa hora.</p>
+          <p class="bq-tenue">Cierre del {{ programa.fechaNegocio | fecha }}. Mantenga esta página abierta hasta ese momento.</p>
           <button type="button" class="bq-boton bq-boton--secundario bq-boton--pequeno" (click)="cancelarProgramacion()">
             Cancelar programación
           </button>
         } @else {
           <div class="programacion__formulario">
             <label class="bq-campo">
-              <span class="bq-campo__etiqueta">Hora del cierre</span>
+              <span class="bq-campo__etiqueta">Fecha</span>
+              <input
+                class="bq-entrada"
+                type="date"
+                [min]="fechaMinima"
+                [value]="fechaProgramada()"
+                (input)="fechaProgramada.set($any($event.target).value)"
+                [attr.aria-invalid]="errorProgramacion() ? 'true' : null"
+              />
+            </label>
+            <label class="bq-campo">
+              <span class="bq-campo__etiqueta">Hora</span>
               <input
                 class="bq-entrada"
                 type="time"
@@ -114,7 +125,7 @@
           @if (errorProgramacion()) {
             <p class="bq-campo__error" role="alert">{{ errorProgramacion() }}</p>
           } @else {
-            <p class="bq-tenue">Si la hora ya pasó hoy, el cierre queda para mañana a esa hora. Se ejecuta mientras esta página siga abierta.</p>
+            <p class="bq-tenue">Elija el día y la hora del cierre. Se ejecuta mientras esta página siga abierta.</p>
           }
         }
         @if (avisoProgramacion()) {
