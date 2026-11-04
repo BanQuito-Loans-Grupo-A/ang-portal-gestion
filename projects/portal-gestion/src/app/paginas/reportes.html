@@ -25,6 +25,10 @@
       <bq-icono nombre="grafico" [tamano]="18" />
       Generar
     </button>
+    <button class="bq-boton bq-boton--secundario" type="button" (click)="descargar()" [disabled]="!hayDatos()">
+      <bq-icono nombre="descarga" [tamano]="18" />
+      Descargar CSV
+    </button>
   </form>
 
   <div class="pestanas" role="tablist" aria-label="Reportes disponibles">

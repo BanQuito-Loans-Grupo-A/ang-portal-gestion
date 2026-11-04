@@ -104,3 +104,10 @@
   white-space: normal;
   min-width: 280px;
 }
+
+@media (max-width: 600px) {
+  .filtros .bq-boton {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}

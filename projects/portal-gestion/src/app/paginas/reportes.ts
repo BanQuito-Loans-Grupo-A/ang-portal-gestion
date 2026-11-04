@@ -6,6 +6,26 @@ import {
 } from 'shared';
 
 type Vista = 'morosidad' | 'tramos' | 'salud' | 'roll';
+type Celda = string | number | null | undefined;
+
+function celda(valor: Celda): string {
+  if (valor === null || valor === undefined) {
+    return '';
+  }
+  const texto = typeof valor === 'number' ? String(valor).replace('.', ',') : valor;
+  return /[";\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+}
+
+function descargarCsv(nombre: string, filas: Celda[][]): void {
+  const contenido = '\uFEFF' + filas.map((fila) => fila.map(celda).join(';')).join('\r\n');
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+}
 
 @Component({
   selector: 'pg-reportes',
@@ -69,6 +89,68 @@ export class Reportes {
     return textos[evolucion];
   }
 
+  protected hayDatos(): boolean {
+    const datos: Record<Vista, unknown> = {
+      morosidad: this.morosidad(),
+      tramos: this.tramos(),
+      salud: this.salud(),
+      roll: this.roll(),
+    };
+    return !this.cargando() && !!datos[this.vista()];
+  }
+
+  protected descargar(): void {
+    const morosidad = this.morosidad();
+    const tramos = this.tramos();
+    const salud = this.salud();
+    const roll = this.roll();
+    if (this.vista() === 'morosidad' && morosidad) {
+      descargarCsv(`indice_morosidad_${morosidad.fechaCorte}.csv`, [
+        ['Indicador', 'Valor'],
+        ['Fecha de corte', morosidad.fechaCorte],
+        ['Saldo cartera vencida', morosidad.saldoVencida],
+        ['Saldo cartera en litigio', morosidad.saldoEnLitigio],
+        ['Saldo vencida y en litigio', morosidad.saldoVencidaYEnLitigio],
+        ['Cartera bruta', morosidad.carteraBruta],
+        ['Índice de morosidad (%)', morosidad.indiceMorosidad],
+        ['Cartera castigada', morosidad.saldoCastigada],
+      ]);
+    } else if (this.vista() === 'tramos' && tramos) {
+      descargarCsv(`composicion_tramos_${tramos.fechaCorte}.csv`, [
+        ['Tramo', 'Estado', 'Operaciones', 'Saldo de capital', '% del total', 'Provisión'],
+        ...tramos.tramos.map((fila) => [fila.numeroTramo, fila.estadoCartera, fila.operaciones, fila.saldoCapital,
+          fila.porcentajeSaldo, fila.provision]),
+        ['Total', '', tramos.total.operaciones, tramos.total.saldoCapital, tramos.total.porcentajeSaldo,
+          tramos.total.provision],
+      ]);
+    } else if (this.vista() === 'salud' && salud) {
+      const grupos: Array<[string, typeof salud.distribucionPorMonto]> = [
+        ['Por monto original', salud.distribucionPorMonto],
+        ['Por plazo', salud.distribucionPorPlazo],
+        ['Por sistema de amortización', salud.distribucionPorSistema],
+      ];
+      descargarCsv(`salud_portafolio_${salud.fechaCorte}.csv`, [
+        ['Indicador', 'Valor'],
+        ['Fecha de corte', salud.fechaCorte],
+        ['Índice de morosidad (%)', salud.indiceMorosidad],
+        ['Cobertura de provisiones (%)', salud.coberturaProvisiones],
+        ['Concentración diez mayores clientes (%)', salud.concentracionDiezMayores],
+        [],
+        ['Distribución', 'Categoría', 'Operaciones', 'Saldo de capital', '% del saldo'],
+        ...grupos.flatMap(([titulo, filas]) => filas.map((fila) => [titulo, fila.categoria, fila.operaciones,
+          fila.saldoCapital, fila.porcentajeSaldo])),
+      ]);
+    } else if (this.vista() === 'roll' && roll) {
+      descargarCsv(`matriz_maduracion_${roll.fechaInicial}_${roll.fechaFinal}.csv`, [
+        ['Tramo inicial', 'Operaciones del tramo', 'Saldo inicial del tramo', 'Destino', 'Evolución',
+          'Operaciones', 'Saldo', '% del saldo'],
+        ...roll.filas.flatMap((fila) => fila.destinos.map((destino) => [fila.tramoInicial, fila.operaciones,
+          fila.saldoInicial, this.nombreDestino(destino.destino), this.textoEvolucion(destino.evolucion),
+          destino.operaciones, destino.saldoInicial, destino.porcentajeSaldo])),
+      ]);
+    }
+  }
+
   private iniciarFechas(cierres: CierreRespuesta[]): void {
     const cerrados = cierres
       .filter((cierre) => cierre.estado === 'CERRADO')
@@ -83,7 +165,8 @@ export class Reportes {
     limite.setMonth(limite.getMonth() - 1);
     const tope = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}-${String(limite.getDate()).padStart(2, '0')}`;
     const anteriores = cerrados.filter((fecha) => fecha <= tope);
-    const inicial = anteriores.length ? anteriores[anteriores.length - 1] : cerrados[0];
+    const previas = cerrados.filter((fecha) => fecha < corte);
+    const inicial = anteriores.length ? anteriores[anteriores.length - 1] : previas.length ? previas[0] : corte;
     this.formulario.setValue({ fechaCorte: corte, fechaInicial: inicial });
     this.consultar();
   }
@@ -117,6 +200,11 @@ export class Reportes {
       this.api.reporteSalud(fechaCorte).subscribe({ next: (v) => { this.salud.set(v); terminar(); }, error: fallar });
     } else {
       this.roll.set(null);
+      if (fechaInicial >= fechaCorte) {
+        this.error.set('La fecha inicial debe ser anterior a la fecha final');
+        terminar();
+        return;
+      }
       this.api.reporteRollRate(fechaInicial, fechaCorte).subscribe({ next: (v) => { this.roll.set(v); terminar(); }, error: fallar });
     }
   }
