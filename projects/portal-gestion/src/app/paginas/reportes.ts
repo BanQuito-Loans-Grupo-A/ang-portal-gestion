@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
-  ApiBanquito, Cargando, CierreRespuesta, DineroPipe, EvolucionTramo, FechaPipe, Icono, ReporteComposicionTramos,
+  ApiBanquito, ArchivoRecaudacion, Cargando, ChipEstado, CierreRespuesta, DineroPipe, EvolucionTramo, FechaPipe, Icono, ReporteComposicionTramos,
   ReporteMorosidad, ReporteRollRate, ReporteSaludPortafolio, TasaPipe, mensajeDe,
 } from 'shared';
 
-type Vista = 'morosidad' | 'tramos' | 'salud' | 'roll';
+type Vista = 'morosidad' | 'tramos' | 'salud' | 'roll' | 'novedades';
 type Celda = string | number | null | undefined;
 
 function celda(valor: Celda): string {
@@ -18,8 +18,12 @@ function celda(valor: Celda): string {
 
 function descargarCsv(nombre: string, filas: Celda[][]): void {
   const contenido = '\uFEFF' + filas.map((fila) => fila.map(celda).join(';')).join('\r\n');
+  descargarBlob(nombre, new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
+}
+
+function descargarBlob(nombre: string, contenido: Blob): void {
   const enlace = document.createElement('a');
-  enlace.href = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
+  enlace.href = URL.createObjectURL(contenido);
   enlace.download = nombre;
   document.body.appendChild(enlace);
   enlace.click();
@@ -30,7 +34,7 @@ function descargarCsv(nombre: string, filas: Celda[][]): void {
 @Component({
   selector: 'pg-reportes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icono, Cargando, DineroPipe, FechaPipe, TasaPipe],
+  imports: [ReactiveFormsModule, Icono, Cargando, ChipEstado, DineroPipe, FechaPipe, TasaPipe],
   templateUrl: './reportes.html',
   styleUrl: './reportes.css',
 })
@@ -45,12 +49,15 @@ export class Reportes {
   protected readonly tramos = signal<ReporteComposicionTramos | null>(null);
   protected readonly salud = signal<ReporteSaludPortafolio | null>(null);
   protected readonly roll = signal<ReporteRollRate | null>(null);
+  protected readonly archivos = signal<ArchivoRecaudacion[] | null>(null);
+  protected readonly descargando = signal<number | null>(null);
 
   protected readonly vistas: Array<{ id: Vista; texto: string }> = [
     { id: 'morosidad', texto: 'Índice de morosidad' },
     { id: 'tramos', texto: 'Composición por tramos' },
     { id: 'salud', texto: 'Salud y concentración' },
     { id: 'roll', texto: 'Matriz de maduración' },
+    { id: 'novedades', texto: 'Archivos de novedades' },
   ];
 
   protected readonly formulario = this.fb.nonNullable.group({
@@ -95,11 +102,41 @@ export class Reportes {
       tramos: this.tramos(),
       salud: this.salud(),
       roll: this.roll(),
+      novedades: this.archivos()?.length ? this.archivos() : null,
     };
     return !this.cargando() && !!datos[this.vista()];
   }
 
+  protected nombreNovedad(archivo: ArchivoRecaudacion): string {
+    return archivo.nombreArchivoNovedad || archivo.nombreArchivo.replace(/^REC_/, 'NOV_REC_');
+  }
+
+  protected descargarNovedad(archivo: ArchivoRecaudacion): void {
+    this.descargando.set(archivo.id);
+    this.error.set(null);
+    this.api.archivoNovedades(archivo.id).subscribe({
+      next: (contenido) => {
+        descargarBlob(this.nombreNovedad(archivo), contenido);
+        this.descargando.set(null);
+      },
+      error: (fallo) => {
+        this.error.set(mensajeDe(fallo, 'No fue posible descargar el archivo de novedades'));
+        this.descargando.set(null);
+      },
+    });
+  }
+
   protected descargar(): void {
+    const archivos = this.archivos();
+    if (this.vista() === 'novedades' && archivos?.length) {
+      descargarCsv(`archivos_recaudacion_${archivos[0].fechaProceso}.csv`, [
+        ['Archivo de recaudación', 'Fecha de proceso', 'Estado', 'Código de rechazo', 'Registros', 'Monto total',
+          'Archivo de novedades'],
+        ...archivos.map((archivo) => [archivo.nombreArchivo, archivo.fechaProceso, archivo.estado,
+          archivo.codigoRechazo, archivo.totalRegistros, archivo.montoTotal, this.nombreNovedad(archivo)]),
+      ]);
+      return;
+    }
     const morosidad = this.morosidad();
     const tramos = this.tramos();
     const salud = this.salud();
@@ -198,6 +235,9 @@ export class Reportes {
     } else if (this.vista() === 'salud') {
       this.salud.set(null);
       this.api.reporteSalud(fechaCorte).subscribe({ next: (v) => { this.salud.set(v); terminar(); }, error: fallar });
+    } else if (this.vista() === 'novedades') {
+      this.archivos.set(null);
+      this.api.archivosRecaudacion(fechaCorte).subscribe({ next: (v) => { this.archivos.set(v); terminar(); }, error: fallar });
     } else {
       this.roll.set(null);
       if (fechaInicial >= fechaCorte) {

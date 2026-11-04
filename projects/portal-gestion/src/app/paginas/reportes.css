@@ -111,3 +111,9 @@
     justify-content: center;
   }
 }
+
+.codigo {
+  display: block;
+  margin-top: var(--bq-esp-1);
+  font-size: 0.8125rem;
+}

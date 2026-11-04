@@ -17,7 +17,7 @@
     }
     <div class="bq-campo">
       <label class="bq-campo__etiqueta" for="fechaCorte">
-        {{ vista() === 'roll' ? 'Fecha final' : 'Fecha de corte' }}
+        {{ vista() === 'roll' ? 'Fecha final' : vista() === 'novedades' ? 'Fecha de proceso' : 'Fecha de corte' }}
       </label>
       <input id="fechaCorte" class="bq-entrada" type="date" formControlName="fechaCorte" />
     </div>
@@ -205,6 +205,62 @@
               </tbody>
             </table>
           </div>
+        }
+      </div>
+    } @else if (vista() === 'novedades' && archivos()) {
+      <div role="tabpanel" id="panel-novedades" aria-labelledby="pestana-novedades" class="bq-animar">
+        @if (archivos(); as lista) {
+          @if (lista.length) {
+            <div class="bq-tabla-envoltura">
+              <table class="bq-tabla">
+                <caption>Archivos de recaudación procesados el {{ formulario.controls.fechaCorte.value | fecha }} y su archivo de novedades</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Archivo recibido</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="bq-num">Registros</th>
+                    <th scope="col" class="bq-num">Monto total</th>
+                    <th scope="col">Archivo de novedades</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (archivo of lista; track archivo.id) {
+                    <tr>
+                      <th scope="row">{{ archivo.nombreArchivo }}</th>
+                      <td>
+                        <bq-chip-estado [estado]="archivo.estado" />
+                        @if (archivo.codigoRechazo) {
+                          <span class="bq-tenue codigo">{{ archivo.codigoRechazo }}</span>
+                        }
+                      </td>
+                      <td class="bq-num">{{ archivo.totalRegistros ?? '—' }}</td>
+                      <td class="bq-num">{{ archivo.montoTotal !== null ? (archivo.montoTotal | dinero) : '—' }}</td>
+                      <td>
+                        @if (archivo.estado === 'EN_PROCESO') {
+                          <span class="bq-tenue">Disponible al terminar el proceso</span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="bq-boton bq-boton--secundario bq-boton--pequeno"
+                            (click)="descargarNovedad(archivo)"
+                            [disabled]="descargando() === archivo.id"
+                          >
+                            <bq-icono nombre="descarga" [tamano]="16" />
+                            {{ descargando() === archivo.id ? 'Descargando…' : nombreNovedad(archivo) }}
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="bq-aviso" role="status">
+              <bq-icono nombre="info" />
+              <p>No se procesaron archivos de recaudación el {{ formulario.controls.fechaCorte.value | fecha }}.</p>
+            </div>
+          }
         }
       </div>
     }
