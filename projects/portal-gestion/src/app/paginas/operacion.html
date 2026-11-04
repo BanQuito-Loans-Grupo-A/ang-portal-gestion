@@ -50,6 +50,36 @@
       </div>
     </div>
 
+    <section class="bq-tarjeta bq-tarjeta--contorno desembolso" aria-labelledby="titulo-desembolso">
+      <h2 id="titulo-desembolso">Desembolso</h2>
+      <dl class="desembolso__datos">
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Monto aprobado</dt>
+          <dd class="bq-dato__valor">{{ detalle.montoAprobado | dinero }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">SOLCA retenida</dt>
+          <dd class="bq-dato__valor">{{ detalle.contribucionSolca | dinero }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Neto acreditado</dt>
+          <dd class="bq-dato__valor">{{ detalle.montoNeto | dinero }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Cuenta de destino</dt>
+          <dd class="bq-dato__valor">{{ detalle.cuentaDestino }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Seguro mensual</dt>
+          <dd class="bq-dato__valor">{{ detalle.seguroMensual | dinero }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Acreditación en el Core de Pasivos</dt>
+          <dd class="bq-dato__valor">{{ detalle.estadoInstruccion | etiqueta }}</dd>
+        </div>
+      </dl>
+    </section>
+
     @if (detalle.estado !== 'CANCELADA') {
     <div class="columnas">
       <section class="bq-tarjeta bq-tarjeta--contorno">

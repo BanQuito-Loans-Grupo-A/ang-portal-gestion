@@ -153,3 +153,18 @@
 .acciones a[aria-disabled='true'] {
   opacity: 0.75;
 }
+
+.desembolso h2 {
+  margin-bottom: var(--bq-esp-4);
+}
+
+.desembolso__datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+  gap: var(--bq-esp-4);
+  margin: 0;
+}
+
+.desembolso__datos dd {
+  margin: 0;
+}

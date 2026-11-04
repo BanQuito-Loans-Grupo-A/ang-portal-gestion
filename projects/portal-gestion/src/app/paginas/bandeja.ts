@@ -12,6 +12,7 @@ import {
   Rango,
   SesionService,
   SolicitudBandeja,
+  SolicitudResumen,
   TasaPipe,
   Vacio,
   mensajeDe,
@@ -52,12 +53,25 @@ export class Bandeja {
   protected readonly vista = signal<'REGISTRADA' | 'APROBADA'>('REGISTRADA');
   protected readonly desembolsada = signal('');
   protected readonly teaMaxima = signal(16.77);
+  protected readonly teaMinima = signal(15.5);
+  protected readonly porcentajeSolca = signal(0.5);
   protected readonly rechazar = signal(false);
   protected readonly textoTeaMaxima = computed(() => this.tasa.transform(this.teaMaxima()));
+  protected readonly textoTeaMinima = computed(() => this.tasa.transform(this.teaMinima()));
+  protected readonly porDesembolsar = signal<SolicitudBandeja | null>(null);
+  protected readonly detalleDesembolso = signal<SolicitudResumen | null>(null);
+  protected readonly solca = computed(() => {
+    const solicitud = this.porDesembolsar();
+    return solicitud ? Math.round(solicitud.montoSolicitado * this.porcentajeSolca()) / 100 : 0;
+  });
+  protected readonly neto = computed(() => {
+    const solicitud = this.porDesembolsar();
+    return solicitud ? Math.round((solicitud.montoSolicitado - this.solca()) * 100) / 100 : 0;
+  });
 
   protected readonly resolucion = this.fb.nonNullable.group({
     rechazar: [false],
-    tea: [16, [Validators.required, Validators.min(0.01), Validators.max(16.77)]],
+    tea: [16, [Validators.required, Validators.min(15.5), Validators.max(16.77)]],
     motivo: [{ value: '', disabled: true }, [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
   });
 
@@ -65,12 +79,25 @@ export class Bandeja {
     this.cargar();
     this.api.parametros().subscribe({
       next: (parametros) => {
-        const maxima = parametros.find((parametro) => parametro.codigo === 'PAR-05')?.valorNumerico;
+        const valor = (codigo: string) => parametros.find((parametro) => parametro.codigo === codigo)?.valorNumerico;
+        const maxima = valor('PAR-05');
+        const minima = valor('PAR-06');
+        const solca = valor('PAR-08');
         if (maxima) {
           this.teaMaxima.set(maxima);
-          this.resolucion.controls.tea.setValidators([Validators.required, Validators.min(0.01), Validators.max(maxima)]);
-          this.resolucion.controls.tea.updateValueAndValidity();
         }
+        if (minima) {
+          this.teaMinima.set(minima);
+        }
+        if (solca) {
+          this.porcentajeSolca.set(solca);
+        }
+        this.resolucion.controls.tea.setValidators([
+          Validators.required,
+          Validators.min(this.teaMinima()),
+          Validators.max(this.teaMaxima()),
+        ]);
+        this.resolucion.controls.tea.updateValueAndValidity();
       },
     });
     this.resolucion.controls.rechazar.valueChanges.subscribe((valor) => this.alternarRechazo(valor));
@@ -114,7 +141,28 @@ export class Bandeja {
     this.cargar();
   }
 
-  protected desembolsar(solicitud: SolicitudBandeja): void {
+  protected prepararDesembolso(solicitud: SolicitudBandeja): void {
+    this.error.set('');
+    this.mensaje.set('');
+    this.detalleDesembolso.set(null);
+    this.porDesembolsar.set(solicitud);
+    this.api.detalleSolicitud(solicitud.idSolicitud).subscribe({
+      next: (detalle) => this.detalleDesembolso.set(detalle.solicitud),
+      error: () => this.detalleDesembolso.set(null),
+    });
+  }
+
+  protected cerrarDesembolso(): void {
+    this.porDesembolsar.set(null);
+    this.detalleDesembolso.set(null);
+    this.error.set('');
+  }
+
+  protected desembolsar(): void {
+    const solicitud = this.porDesembolsar();
+    if (!solicitud) {
+      return;
+    }
     this.procesando.set(true);
     this.error.set('');
     this.mensaje.set('');
@@ -124,6 +172,7 @@ export class Bandeja {
       .subscribe({
         next: (operacion) => {
           this.procesando.set(false);
+          this.porDesembolsar.set(null);
           this.router.navigate(['/operaciones', operacion.numeroPrestamo], { queryParams: { desembolsada: 1 } });
         },
         error: (fallo) => {
@@ -146,7 +195,7 @@ export class Bandeja {
   }
 
   protected seleccionar(solicitud: SolicitudBandeja): void {
-    this.resolucion.reset({ rechazar: false, tea: Math.min(16, this.teaMaxima()), motivo: '' });
+    this.resolucion.reset({ rechazar: false, tea: Math.max(this.teaMinima(), Math.min(16, this.teaMaxima())), motivo: '' });
     this.alternarRechazo(false);
     this.seleccionada.set(solicitud);
     this.mensaje.set('');

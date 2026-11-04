@@ -46,7 +46,7 @@
     </div>
   }
 
-  @if (error() && !seleccionada()) {
+  @if (error() && !seleccionada() && !porDesembolsar()) {
     <div class="bq-aviso bq-aviso--error" role="alert">
       <bq-icono nombre="alerta" />
       <p>{{ error() }}</p>
@@ -134,13 +134,9 @@
                   Resolver solicitud
                 </button>
               } @else {
-                <button
-                  type="button"
-                  class="bq-boton bq-boton--pequeno"
-                  [disabled]="procesando()"
-                  (click)="desembolsar(solicitud)"
-                >
-                  {{ procesando() ? 'Desembolsando…' : 'Desembolsar' }}
+                <button type="button" class="bq-boton bq-boton--pequeno" (click)="prepararDesembolso(solicitud)">
+                  <bq-icono nombre="pago" [tamano]="16" />
+                  Desembolsar
                 </button>
               }
             </div>
@@ -221,16 +217,16 @@
               bqRango
               [bqMax]="teaMaxima()"
               [bqDecimales]="2"
-              min="0.01"
+              [min]="teaMinima()"
               [max]="teaMaxima()"
               step="0.01"
               aria-describedby="ayuda-tea"
             />
-            <p class="bq-campo__ayuda" id="ayuda-tea">Máximo {{ textoTeaMaxima() }} vigente</p>
+            <p class="bq-campo__ayuda" id="ayuda-tea">Entre {{ textoTeaMinima() }} (TEA referencial) y {{ textoTeaMaxima() }} (TEA máxima vigente)</p>
             @if (resolucion.controls.tea.touched && resolucion.controls.tea.invalid) {
               <p class="bq-campo__error" role="alert">
                 <bq-icono nombre="alerta" [tamano]="15" />
-                La TEA debe estar entre 0,01 % y {{ textoTeaMaxima() }}
+                La TEA debe estar entre {{ textoTeaMinima() }} y {{ textoTeaMaxima() }}
               </p>
             }
           </div>
@@ -255,6 +251,69 @@
           </button>
         }
       </form>
+    </section>
+  </div>
+}
+
+@if (porDesembolsar(); as solicitud) {
+  <div class="bq-capa" (keydown.escape)="cerrarDesembolso()">
+    <div class="bq-velo" (click)="cerrarDesembolso()"></div>
+    <section
+      class="bq-modal bq-animar"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-desembolso"
+      [bqEnfocar]="solicitud"
+    >
+      <div class="bq-modal__cabecera">
+        <h2 id="titulo-desembolso">Desembolsar la solicitud {{ solicitud.idSolicitud }}</h2>
+        <button type="button" class="bq-boton bq-boton--icono bq-boton--fantasma" (click)="cerrarDesembolso()" aria-label="Cerrar">
+          <bq-icono nombre="cerrar" [tamano]="18" />
+        </button>
+      </div>
+      <p class="bq-suave">{{ solicitud.nombreCompletoCliente }} · cédula {{ solicitud.identificacionCliente }}</p>
+
+      <dl class="desglose">
+        <div>
+          <dt>Monto aprobado</dt>
+          <dd>{{ solicitud.montoSolicitado | dinero }}</dd>
+        </div>
+        <div>
+          <dt>Contribución SOLCA retenida ({{ porcentajeSolca() | tasa }})</dt>
+          <dd class="desglose__resta">− {{ solca() | dinero }}</dd>
+        </div>
+        <div class="desglose__total">
+          <dt>Neto a acreditar</dt>
+          <dd>{{ neto() | dinero }}</dd>
+        </div>
+      </dl>
+
+      <dl class="datos-desembolso">
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Cuenta de destino</dt>
+          <dd class="bq-dato__valor">{{ detalleDesembolso()?.numeroCuentaDesembolso ?? '…' }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">TEA asignada</dt>
+          <dd class="bq-dato__valor">{{ detalleDesembolso()?.teaAsignada != null ? (detalleDesembolso()!.teaAsignada! | tasa) : '…' }}</dd>
+        </div>
+        <div class="bq-dato">
+          <dt class="bq-dato__clave">Plazo</dt>
+          <dd class="bq-dato__valor">{{ solicitud.plazoMes }} meses · {{ solicitud.sistemaAmortizacion | etiqueta }}</dd>
+        </div>
+      </dl>
+
+      @if (error()) {
+        <div class="bq-aviso bq-aviso--error" role="alert">
+          <bq-icono nombre="alerta" />
+          <p>{{ error() }}</p>
+        </div>
+      }
+
+      <button class="bq-boton" type="button" [disabled]="procesando()" (click)="desembolsar()">
+        <bq-icono nombre="check" [tamano]="16" />
+        {{ procesando() ? 'Desembolsando…' : 'Confirmar desembolso' }}
+      </button>
     </section>
   </div>
 }

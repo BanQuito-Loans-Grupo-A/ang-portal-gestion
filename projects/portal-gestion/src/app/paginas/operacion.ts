@@ -21,6 +21,7 @@ export class Operacion {
   private readonly ruta = inject(ActivatedRoute);
   private readonly sesion = inject(SesionService);
   private readonly numero = this.ruta.snapshot.paramMap.get('numero') ?? '';
+  private readonly dinero = new DineroPipe();
 
   protected readonly operacion = signal<OperacionDetalle | null>(null);
   protected readonly cuotas = signal<CuotaTabla[]>([]);
@@ -31,6 +32,7 @@ export class Operacion {
   protected readonly prelacion = signal<DesglosePrelacion | null>(null);
   protected readonly liquidacion = signal<Liquidacion | null>(null);
   protected readonly tablaActualizada = signal(0);
+  private recienDesembolsada = false;
   protected readonly abonoMinimo = signal(50);
   protected readonly cargando = signal(true);
   protected readonly procesando = signal(false);
@@ -50,7 +52,7 @@ export class Operacion {
 
   constructor() {
     if (this.ruta.snapshot.queryParamMap.get('desembolsada')) {
-      this.mensaje.set(`Préstamo ${this.numero} desembolsado. Esta es su tabla de amortización.`);
+      this.recienDesembolsada = true;
       this.tablaActualizada.set(1);
     }
     this.cargarDatos();
@@ -68,6 +70,12 @@ export class Operacion {
       next: (valor) => {
         this.operacion.set(valor);
         this.limitarAbono();
+        if (this.recienDesembolsada) {
+          this.recienDesembolsada = false;
+          this.mensaje.set(`Préstamo ${valor.numeroPrestamo} desembolsado: de ${this.dinero.transform(valor.montoAprobado)} se retuvieron `
+            + `${this.dinero.transform(valor.contribucionSolca)} de contribución SOLCA y se acreditan ${this.dinero.transform(valor.montoNeto)} `
+            + `en la cuenta ${valor.cuentaDestino}.`);
+        }
         this.cargando.set(false);
       },
       error: (fallo) => {
