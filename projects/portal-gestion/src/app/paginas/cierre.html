@@ -85,7 +85,7 @@
       <div class="programacion__bloque">
         <p class="bq-dato__clave">Programar desde el Portal</p>
         @if (programado(); as programa) {
-          <p class="bq-dato__valor">Hoy a las {{ programa.hora }} · faltan {{ restante() }}</p>
+          <p class="bq-dato__valor">{{ diaProgramado() }} a las {{ programa.hora }} · faltan {{ restante() }}</p>
           <p class="bq-tenue">Cierre del {{ programa.fechaNegocio | fecha }}. Mantenga esta página abierta hasta esa hora.</p>
           <button type="button" class="bq-boton bq-boton--secundario bq-boton--pequeno" (click)="cancelarProgramacion()">
             Cancelar programación
@@ -114,7 +114,7 @@
           @if (errorProgramacion()) {
             <p class="bq-campo__error" role="alert">{{ errorProgramacion() }}</p>
           } @else {
-            <p class="bq-tenue">El cierre se ejecuta a esa hora mientras esta página siga abierta.</p>
+            <p class="bq-tenue">Si la hora ya pasó hoy, el cierre queda para mañana a esa hora. Se ejecuta mientras esta página siga abierta.</p>
           }
         }
         @if (avisoProgramacion()) {

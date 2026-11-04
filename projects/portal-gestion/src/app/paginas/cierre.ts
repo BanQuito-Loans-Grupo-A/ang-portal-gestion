@@ -26,6 +26,7 @@ const DIAS: Record<string, string> = {
 interface CierreProgramadoPortal {
   fechaNegocio: string;
   hora: string;
+  instante: number;
 }
 
 function dosDigitos(valor: number): string {
@@ -44,7 +45,8 @@ function describirCron(cron: string): string {
 function leerProgramacion(): CierreProgramadoPortal | null {
   try {
     const texto = localStorage.getItem(CLAVE_PROGRAMACION);
-    return texto ? (JSON.parse(texto) as CierreProgramadoPortal) : null;
+    const valor = texto ? (JSON.parse(texto) as CierreProgramadoPortal) : null;
+    return valor && typeof valor.instante === 'number' ? valor : null;
   } catch {
     return null;
   }
@@ -62,11 +64,18 @@ function guardarProgramacion(valor: CierreProgramadoPortal | null): void {
   }
 }
 
-function momento(hora: string): Date {
+function proximaOcurrencia(hora: string): number {
   const [h, m] = hora.split(':').map(Number);
   const fecha = new Date();
   fecha.setHours(h, m, 0, 0);
-  return fecha;
+  if (fecha.getTime() <= Date.now()) {
+    fecha.setDate(fecha.getDate() + 1);
+  }
+  return fecha.getTime();
+}
+
+function esHoy(instante: number): boolean {
+  return new Date(instante).toDateString() === new Date().toDateString();
 }
 
 const ETAPAS = [
@@ -110,12 +119,16 @@ export class Cierre {
   protected readonly avisoProgramacion = signal('');
   private readonly ahora = signal(Date.now());
   private horaEnEjecucion = '';
+  protected readonly diaProgramado = computed(() => {
+    const programado = this.programado();
+    return programado && esHoy(programado.instante) ? 'Hoy' : 'Mañana';
+  });
   protected readonly restante = computed(() => {
     const programado = this.programado();
     if (!programado) {
       return '';
     }
-    const segundos = Math.max(0, Math.round((momento(programado.hora).getTime() - this.ahora()) / 1000));
+    const segundos = Math.max(0, Math.round((programado.instante - this.ahora()) / 1000));
     const horas = Math.floor(segundos / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);
     return horas ? `${horas} h ${dosDigitos(minutos)} min` : `${minutos} min ${dosDigitos(segundos % 60)} s`;
@@ -133,7 +146,7 @@ export class Cierre {
     effect(() => {
       const programado = this.programado();
       const estado = this.fechaNegocio.estado();
-      if (!programado || !estado || this.ejecutando() || this.ahora() < momento(programado.hora).getTime()) {
+      if (!programado || !estado || this.ejecutando() || this.ahora() < programado.instante) {
         return;
       }
       this.lanzarProgramado(programado, estado.fechaNegocio, estado.estado);
@@ -149,15 +162,16 @@ export class Cierre {
       this.errorProgramacion.set('Indique la hora del cierre');
       return;
     }
-    if (momento(hora).getTime() <= Date.now() + 30000) {
-      this.errorProgramacion.set('Elija una hora posterior a la actual');
+    const instante = proximaOcurrencia(hora);
+    if (instante - Date.now() < 60000) {
+      this.errorProgramacion.set('Elija una hora al menos un minuto después de la actual');
       return;
     }
     if (!estado || estado.estado !== 'ABIERTO') {
       this.errorProgramacion.set('Solo se puede programar el cierre de un día abierto');
       return;
     }
-    const valor = { fechaNegocio: estado.fechaNegocio, hora };
+    const valor = { fechaNegocio: estado.fechaNegocio, hora, instante };
     guardarProgramacion(valor);
     this.programado.set(valor);
   }
