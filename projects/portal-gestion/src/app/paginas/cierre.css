@@ -98,3 +98,59 @@
 .confirmar {
   max-width: 420px;
 }
+
+.programacion {
+  display: grid;
+  gap: var(--bq-esp-4);
+}
+
+.programacion__cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--bq-esp-3);
+  color: var(--bq-marca);
+}
+
+.programacion__cabecera h2 {
+  margin: 0;
+  color: var(--bq-texto);
+}
+
+.programacion__bloques {
+  display: grid;
+  gap: var(--bq-esp-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+}
+
+.programacion__bloque {
+  display: grid;
+  gap: var(--bq-esp-2);
+  align-content: start;
+  padding: var(--bq-esp-4);
+  background: var(--bq-superficie);
+  border: 1px solid var(--bq-borde);
+  border-radius: var(--bq-radio);
+}
+
+.programacion__bloque p {
+  margin: 0;
+}
+
+.programacion__bloque .bq-boton {
+  justify-self: start;
+}
+
+.programacion__formulario {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bq-esp-3);
+  flex-wrap: wrap;
+}
+
+.programacion__formulario .bq-campo {
+  flex: 1 1 160px;
+}
+
+.programacion__formulario .bq-boton {
+  min-height: 48px;
+}

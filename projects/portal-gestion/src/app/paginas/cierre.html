@@ -60,6 +60,70 @@
     }
   </section>
 
+  <section class="bq-tarjeta bq-tarjeta--contorno programacion" aria-labelledby="titulo-programacion">
+    <div class="programacion__cabecera">
+      <bq-icono nombre="reloj" [tamano]="22" />
+      <h2 id="titulo-programacion">Cierre programado</h2>
+    </div>
+
+    <div class="programacion__bloques">
+      <div class="programacion__bloque">
+        <p class="bq-dato__clave">Cierre automático del sistema</p>
+        @if (servidor(); as programacion) {
+          @if (programacion.activa) {
+            <p class="bq-dato__valor">Activo, {{ textoServidor() }}</p>
+            <p class="bq-tenue">El sistema cierra el día por su cuenta, aunque nadie tenga abierto el Portal.</p>
+          } @else {
+            <p class="bq-dato__valor">Desactivado</p>
+            <p class="bq-tenue">El sistema no cierra el día por su cuenta. Puede programar el cierre desde aquí.</p>
+          }
+        } @else {
+          <p class="bq-tenue">No fue posible consultar la programación del sistema.</p>
+        }
+      </div>
+
+      <div class="programacion__bloque">
+        <p class="bq-dato__clave">Programar desde el Portal</p>
+        @if (programado(); as programa) {
+          <p class="bq-dato__valor">Hoy a las {{ programa.hora }} · faltan {{ restante() }}</p>
+          <p class="bq-tenue">Cierre del {{ programa.fechaNegocio | fecha }}. Mantenga esta página abierta hasta esa hora.</p>
+          <button type="button" class="bq-boton bq-boton--secundario bq-boton--pequeno" (click)="cancelarProgramacion()">
+            Cancelar programación
+          </button>
+        } @else {
+          <div class="programacion__formulario">
+            <label class="bq-campo">
+              <span class="bq-campo__etiqueta">Hora del cierre</span>
+              <input
+                class="bq-entrada"
+                type="time"
+                [value]="horaProgramada()"
+                (input)="horaProgramada.set($any($event.target).value)"
+                [attr.aria-invalid]="errorProgramacion() ? 'true' : null"
+              />
+            </label>
+            <button
+              type="button"
+              class="bq-boton bq-boton--pequeno"
+              (click)="programar()"
+              [disabled]="ejecutando() || fechaNegocio.estado()?.estado !== 'ABIERTO'"
+            >
+              Programar cierre
+            </button>
+          </div>
+          @if (errorProgramacion()) {
+            <p class="bq-campo__error" role="alert">{{ errorProgramacion() }}</p>
+          } @else {
+            <p class="bq-tenue">El cierre se ejecuta a esa hora mientras esta página siga abierta.</p>
+          }
+        }
+        @if (avisoProgramacion()) {
+          <p class="bq-suave" role="status">{{ avisoProgramacion() }}</p>
+        }
+      </div>
+    </div>
+  </section>
+
   <section>
     <h2>Secuencia de etapas</h2>
     <ol class="secuencia bq-animar-lista">
